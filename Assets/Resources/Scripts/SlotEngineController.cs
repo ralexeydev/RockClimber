@@ -1,15 +1,9 @@
-// Unity adapter for SlotEngine.
-// Keeps the engine as a plain C# object while exposing it to the scene via ISlotEngine.
-public class SlotEngineController : BaseController, ISlotEngine
+// Plain C# adapter — no MonoBehaviour needed since the engine has no Unity scene dependency.
+// GameController instantiates this directly and passes it to GameContext as ISlotEngine.
+public class SlotEngineController : ISlotEngine
 {
-    private SlotEngine m_Engine;
+    private readonly SlotEngine m_Engine = new();
 
-    protected override void Initialize()
-    {
-        m_Engine = new SlotEngine();
-    }
-
-    // Delegates directly to the pure C# engine instance.
     public SpinResult GenerateSpinResult(SpinRequest request)
     {
         return m_Engine.GenerateSpinResult(request);

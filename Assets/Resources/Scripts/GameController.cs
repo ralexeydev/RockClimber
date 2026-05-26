@@ -8,7 +8,6 @@ public class GameController : BaseController
     [SerializeField] private SpinButtonView m_SpinButtonView;
     [SerializeField] private BetController m_BetController;
     [SerializeField] private BalanceController m_BalanceController;
-    [SerializeField] private SlotEngineController m_EngineController;
     [SerializeField] private VisualSequenceController m_VisualSequenceController;
 
     private GameStateMachine m_StateMachine;
@@ -19,6 +18,9 @@ public class GameController : BaseController
     {
         m_StateMachine = new GameStateMachine();
 
+        // Engine is pure C# — instantiated here, no scene GameObject required.
+        ISlotEngine engine = new SlotEngineController();
+
         // Build the context once and share it with all states.
         // States never need to find or cache components themselves.
         GameContext context = new GameContext(
@@ -26,7 +28,7 @@ public class GameController : BaseController
             stateMachine: m_StateMachine,
             balance: m_BalanceController,
             bet: m_BetController,
-            engine: m_EngineController,
+            engine: engine,
             visuals: m_VisualSequenceController,
             spinButton: m_SpinButtonView
         );

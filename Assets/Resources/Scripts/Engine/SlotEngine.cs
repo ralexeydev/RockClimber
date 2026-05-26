@@ -15,7 +15,7 @@ public class SlotEngine : ISlotEngine
         {
             for (int row = 0; row < 3; row++)
             {
-                finalBoard[reel, row] = m_Random.Next(1, 10);
+                finalBoard[reel, row] = m_Random.Next(1, 9);
             }
         }
 

@@ -1,7 +1,7 @@
 using UnityEngine;
 
-// Owns the state machine and serves as the coroutine runner for states.
-// All game flow logic lives in the individual state classes, not here.
+// Owns the state machine and serves as the coroutine runner for states
+// All game flow logic lives in the individual state classes, not here
 public class GameController : BaseController
 {
     [Header("References")]
@@ -9,6 +9,7 @@ public class GameController : BaseController
     [SerializeField] private BetController m_BetController;
     [SerializeField] private BalanceController m_BalanceController;
     [SerializeField] private VisualSequenceController m_VisualSequenceController;
+    [SerializeField] private SlotConfigSO m_SlotConfig;
 
     private GameStateMachine m_StateMachine;
 
@@ -18,11 +19,12 @@ public class GameController : BaseController
     {
         m_StateMachine = new GameStateMachine();
 
-        // Engine is pure C# — instantiated here, no scene GameObject required.
-        ISlotEngine engine = new SlotEngineController();
+        //Built from the SlotConfigSO assigned in the Inspector
+        ISlotEngine engine = new SlotEngineController(m_SlotConfig);
 
         // Build the context once and share it with all states.
-        // States never need to find or cache components themselves.
+        // States never need to find themselves
+
         GameContext context = new GameContext(
             coroutineRunner: this,
             stateMachine: m_StateMachine,
@@ -33,7 +35,9 @@ public class GameController : BaseController
             spinButton: m_SpinButtonView
         );
 
-        // Register every state before starting — TransitionTo will fail on unknown keys.
+        // Register every state before starting 
+        // TransitionTo will fail on unknown keys
+
         m_StateMachine.RegisterState(GameState.Boot, new BootState(context));
         m_StateMachine.RegisterState(GameState.Idle, new IdleState(context));
         m_StateMachine.RegisterState(GameState.PreparingSpin, new PreparingSpinState(context));

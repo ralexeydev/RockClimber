@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using UnityEngine;
 
@@ -7,8 +6,8 @@ using UnityEngine;
 //   - When a slot reaches the bottom wrap threshold it teleports above the top of the
 //     strip, so a 2D mask covering the reel window hides the seam and produces an
 //     endless-loop circular motion.
-//   - During the spin each slot independently cycles a randomly-chosen blur sequence,
-//     so different reels / rows show different blurred icons for visual variety.
+//   - During the spin each slot independently picks a random icon's blur loop and
+//     cycles through its frames, so different rows show different blurred icons.
 //   - On stop the scroll and blur loops end, slots snap back to their rest positions,
 //     and the visible rows receive their final icons from the engine result.
 //
@@ -19,33 +18,33 @@ using UnityEngine;
 //                           three visible rows. e.g. with 5 slots and one extra at
 //                           each end, this is [1, 2, 3].
 //   m_IconSprites         — icon_1..icon_8 (index 0 = icon_1).
-//   m_BlurAnimations      — one BlurSequence per icon. A random sequence is picked
-//                           for each slot on each spin.
+//   m_BlurFrames          — flat list of every blur PNG, ordered by icon then frame:
+//                           icon_1_00..icon_1_04, icon_2_00..icon_2_04, ..., icon_8_00..icon_8_04.
+//                           Each slot picks a random icon group at spin start and loops it.
 public class ReelView : MonoBehaviour
 {
-    [Serializable]
-    public class BlurSequence
-    {
-        public Sprite[] Frames;
-    }
-
     [Header("Strip")]
     [SerializeField] private SpriteRenderer[] m_SymbolRenderers;
-    [SerializeField] private int[]            m_VisibleSlotIndices;
+    [SerializeField] private int[] m_VisibleSlotIndices;
 
     [Header("Sprites")]
-    [SerializeField] private Sprite[]         m_IconSprites;
-    [SerializeField] private BlurSequence[]   m_BlurAnimations;
+    [SerializeField] private Sprite[] m_IconSprites;
+    [SerializeField] private Sprite[] m_BlurFrames;
+    [SerializeField] private int m_BlurFramesPerIcon = 5;
 
     [Header("Motion")]
-    [SerializeField] private float m_SpinSpeed      = 20f;
-    [SerializeField] private float m_SymbolSpacing  = 1.8f;
-    [SerializeField] private float m_BlurFrameRate  = 24f;
+    [SerializeField] private float m_SpinSpeed = 20f;
+    [SerializeField] private float m_SymbolSpacing = 1.8f;
+    [SerializeField] private float m_BlurFrameRate = 24f;
 
-    private float[]     m_RestY;
-    private float       m_WrapBelow;
-    private float       m_TotalSpan;
-    private Coroutine   m_ScrollCoroutine;
+    [Header("Bounce")]
+    [SerializeField] private float m_BounceAmount = 0.3f;
+    [SerializeField] private float m_BounceDuration = 0.2f;
+
+    private float[] m_RestY;
+    private float m_WrapBelow;
+    private float m_TotalSpan;
+    private Coroutine m_ScrollCoroutine;
     private Coroutine[] m_BlurCoroutines;
 
     private void Awake()
@@ -58,8 +57,8 @@ public class ReelView : MonoBehaviour
             if (m_RestY[i] < minY) minY = m_RestY[i];
         }
 
-        m_TotalSpan      = m_SymbolSpacing * m_SymbolRenderers.Length;
-        m_WrapBelow      = minY - m_SymbolSpacing;
+        m_TotalSpan = m_SymbolSpacing * m_SymbolRenderers.Length;
+        m_WrapBelow = minY - m_SymbolSpacing;
         m_BlurCoroutines = new Coroutine[m_SymbolRenderers.Length];
     }
 
@@ -67,9 +66,9 @@ public class ReelView : MonoBehaviour
     {
         if (m_ScrollCoroutine != null)
             StopCoroutine(m_ScrollCoroutine);
+
         m_ScrollCoroutine = StartCoroutine(ScrollLoop());
 
-        // Each slot picks its own random blur sequence so the column doesn't look uniform.
         for (int i = 0; i < m_SymbolRenderers.Length; i++)
         {
             if (m_BlurCoroutines[i] != null)
@@ -97,7 +96,7 @@ public class ReelView : MonoBehaviour
 
         SnapToRest();
         ApplyFinalSymbols(finalSymbolIds);
-        yield break;
+        yield return PlayBounce();
     }
 
     // Scrolls every slot downward; wraps any slot that crosses the bottom threshold
@@ -113,13 +112,14 @@ public class ReelView : MonoBehaviour
             for (int i = 0; i < m_SymbolRenderers.Length; i++)
             {
                 float y = m_RestY[i] - offset;
+
                 while (y < m_WrapBelow)
                     y += m_TotalSpan;
 
-                var t   = m_SymbolRenderers[i].transform;
-                var pos = t.localPosition;
-                pos.y   = y;
-                t.localPosition = pos;
+                Transform transform = m_SymbolRenderers[i].transform;
+                Vector3 pos = transform.localPosition;
+                pos.y = y;
+                transform.localPosition = pos;
             }
 
             yield return null;
@@ -128,32 +128,68 @@ public class ReelView : MonoBehaviour
 
     private IEnumerator BlurLoop(int slotIndex)
     {
-        if (m_BlurAnimations == null || m_BlurAnimations.Length == 0)
+        if (m_BlurFrames == null || m_BlurFrames.Length == 0)
+        {
+            Debug.LogWarning($"{gameObject.name}: Blur frames are empty", this);
             yield break;
+        }
 
-        var sequence = m_BlurAnimations[UnityEngine.Random.Range(0, m_BlurAnimations.Length)];
-        if (sequence == null || sequence.Frames == null || sequence.Frames.Length == 0)
-            yield break;
+        int framesPerIcon = Mathf.Max(1, m_BlurFramesPerIcon);
+        int iconCount = Mathf.Max(1, m_BlurFrames.Length / framesPerIcon);
+        int startIdx = Random.Range(0, iconCount) * framesPerIcon;
+        int frame = 0;
+        WaitForSeconds wait = new WaitForSeconds(1f / m_BlurFrameRate);
 
-        int  frame = UnityEngine.Random.Range(0, sequence.Frames.Length);
-        var  wait  = new WaitForSeconds(1f / m_BlurFrameRate);
+        // Set the first frame immediately so the swap is visible without waiting one tick.
+        m_SymbolRenderers[slotIndex].sprite = m_BlurFrames[startIdx];
 
         while (true)
         {
-            m_SymbolRenderers[slotIndex].sprite = sequence.Frames[frame];
-            frame = (frame + 1) % sequence.Frames.Length;
             yield return wait;
+            frame = (frame + 1) % framesPerIcon;
+            int idx = startIdx + frame;
+            if (idx >= m_BlurFrames.Length) idx = startIdx;
+            m_SymbolRenderers[slotIndex].sprite = m_BlurFrames[idx];
         }
     }
 
+    
+    // mimicking the physics of a reel landing with bounce
+    private IEnumerator PlayBounce()
+    {
+        if (m_BounceDuration <= 0f || m_BounceAmount == 0f)
+            yield break;
+
+        float elapsed = 0f;
+        while (elapsed < m_BounceDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t01 = Mathf.Clamp01(elapsed / m_BounceDuration);
+            float displacement = Mathf.Sin(t01 * Mathf.PI) * m_BounceAmount;
+
+            for (int i = 0; i < m_SymbolRenderers.Length; i++)
+            {
+                Transform transform = m_SymbolRenderers[i].transform;
+                Vector3 pos = transform.localPosition;
+                pos.y = m_RestY[i] - displacement;
+                transform.localPosition = pos;
+            }
+
+            yield return null;
+        }
+
+        SnapToRest();
+    }
+
+    // On stop, the scroll and blur coroutines end immediately, so some slots may be mid-scroll or mid-blur.
     private void SnapToRest()
     {
         for (int i = 0; i < m_SymbolRenderers.Length; i++)
         {
-            var t   = m_SymbolRenderers[i].transform;
-            var pos = t.localPosition;
-            pos.y   = m_RestY[i];
-            t.localPosition = pos;
+            Transform transform = m_SymbolRenderers[i].transform;
+            Vector3 pos = transform.localPosition;
+            pos.y = m_RestY[i];
+            transform.localPosition = pos;
         }
     }
 
@@ -161,13 +197,13 @@ public class ReelView : MonoBehaviour
     {
         if (m_IconSprites == null || m_IconSprites.Length == 0)
         {
-            Debug.LogWarning($"{gameObject.name}: m_IconSprites is empty — assign icon sprites in the Inspector.");
+            Debug.LogWarning($"{gameObject.name}: m_IconSprites is empty — assign icon sprites in the Inspector.", this);
             return;
         }
 
         bool hasVisibleMap = m_VisibleSlotIndices != null && m_VisibleSlotIndices.Length > 0;
 
-        // Visible rows get the engine's final symbols.
+        // Visible rows get the engine's final symbols
         for (int v = 0; v < finalSymbolIds.Length; v++)
         {
             int slot = hasVisibleMap ? m_VisibleSlotIndices[v] : v;
@@ -181,7 +217,7 @@ public class ReelView : MonoBehaviour
         for (int i = 0; i < m_SymbolRenderers.Length; i++)
         {
             if (IsVisibleSlot(i, hasVisibleMap, finalSymbolIds.Length)) continue;
-            int rand = UnityEngine.Random.Range(0, m_IconSprites.Length);
+            int rand = Random.Range(0, m_IconSprites.Length);
             m_SymbolRenderers[i].sprite = m_IconSprites[rand];
         }
     }

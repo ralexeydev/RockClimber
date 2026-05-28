@@ -1,4 +1,4 @@
-// Decouples the spin logic from Unity. Implementations can be pure C# with no scene dependency.
+// Decouples the spin logic from Unity
 public interface ISlotEngine
 {
     SpinResult GenerateSpinResult(SpinRequest request);

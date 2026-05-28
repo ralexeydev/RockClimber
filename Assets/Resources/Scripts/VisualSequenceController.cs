@@ -20,7 +20,7 @@ public class VisualSequenceController : BaseView
     public IEnumerator PlaySpinSequence(SpinResult spinResult)
     {
         // Kick off all reels simultaneously.
-        foreach (var reel in m_Reels)
+        foreach (ReelView reel in m_Reels)
             reel.StartSpin();
 
         // Let every reel spin for the minimum duration before stopping begins.

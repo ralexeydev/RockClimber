@@ -1,8 +1,15 @@
-// Plain C# adapter — no MonoBehaviour needed since the engine has no Unity scene dependency.
-// GameController instantiates this directly and passes it to GameContext as ISlotEngine.
+
+// GameController constructs this with a SlotConfigSO and passes it to GameContext as ISlotEngine.
 public class SlotEngineController : ISlotEngine
 {
-    private readonly SlotEngine m_Engine = new();
+    private readonly SlotEngine m_Engine;
+
+    public SlotEngineController(SlotConfigSO config)
+    {
+        var strips = config.BaseReels.ToReelStripArray();
+        var paytable = config.PayTable.ToPayTable();
+        m_Engine = new SlotEngine(strips, paytable);
+    }
 
     public SpinResult GenerateSpinResult(SpinRequest request)
     {

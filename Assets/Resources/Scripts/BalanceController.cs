@@ -14,6 +14,7 @@ public class BalanceController : BaseController
     public void PayBet(int bet)
     {
         m_Balance -= bet;
+        
         // Guard against floating-point or multi-call edge cases producing a negative balance.
         m_Balance = Mathf.Max(0, m_Balance);
     }

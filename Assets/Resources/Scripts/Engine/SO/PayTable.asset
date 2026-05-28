@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Entries:
   - Id: 0
-    IsWild: 0
-    IsScatter: 0
-    Payouts: 
+    IsWild: 1
+    IsScatter: 1
+    Payouts: 19000000320000004b000000
   FreeSpinAwards: 0a0000000f000000190000001900000019000000190000001900000019000000190000001900000064000000

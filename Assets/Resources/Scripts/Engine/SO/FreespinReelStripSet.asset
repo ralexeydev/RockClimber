@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: FreespinReelStripSet
   m_EditorClassIdentifier: 
   Strips:
-  - {fileID: 11400000, guid: 3f0db68829e9f7340bebc81036d1d6bb, type: 2}
-  - {fileID: 11400000, guid: 09aaeffc9e74c6d4193e619fdd4f5a34, type: 2}
-  - {fileID: 11400000, guid: 04636f89cb1466d45acd1d3415e02a2e, type: 2}
-  - {fileID: 11400000, guid: ca30fb70c1a55c046b920a0e418f1274, type: 2}
-  - {fileID: 11400000, guid: 22d385a68a47a3a41ab3883e54996871, type: 2}
+  - {fileID: 11400000, guid: 9b64c1a2278a03d45896c0bcdd755e4c, type: 2}
+  - {fileID: 11400000, guid: f1de8531481100144a12a4f0c1db92a6, type: 2}
+  - {fileID: 11400000, guid: 4d937be9687b0584799413085c2a5974, type: 2}
+  - {fileID: 11400000, guid: a0466aaf873fb7146a3b8277d5fd45f2, type: 2}
+  - {fileID: 11400000, guid: c66e75d0a4fcae24680c13fdb2f13584, type: 2}

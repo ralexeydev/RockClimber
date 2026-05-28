@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: SlotConfig
   m_EditorClassIdentifier: 
   BaseReels: {fileID: 11400000, guid: b4a52d17e7c24874d8e3277fd7f3b4c7, type: 2}
-  FreeSpinReels: {fileID: 11400000, guid: b4a52d17e7c24874d8e3277fd7f3b4c7, type: 2}
+  FreeSpinReels: {fileID: 11400000, guid: 574717208fb6bc042bc43ff00ca047c6, type: 2}
   PayTable: {fileID: 11400000, guid: 4f217753be30fe449a2f32f8ff3dcc2c, type: 2}

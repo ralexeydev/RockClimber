@@ -1,36 +1,23 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-// Drives one reel column with a real spinning-reel effect:
-//   - All slots (visible + extras) scroll downward at a constant speed.
-//   - When a slot reaches the bottom wrap threshold it teleports above the top of the
-//     strip, so a 2D mask covering the reel window hides the seam and produces an
-//     endless-loop circular motion.
-//   - During the spin each slot independently picks a random icon's blur loop and
-//     cycles through its frames, so different rows show different blurred icons.
-//   - On stop the scroll and blur loops end, slots snap back to their rest positions,
-//     and the visible rows receive their final icons from the engine result.
-//
-// Inspector setup:
-//   m_SymbolRenderers     — every renderer in the strip, top to bottom (include the
-//                           off-screen extras above and below the visible window).
-//   m_VisibleSlotIndices  — indices into m_SymbolRenderers that correspond to the
-//                           three visible rows. e.g. with 5 slots and one extra at
-//                           each end, this is [1, 2, 3].
-//   m_IconSprites         — icon_1..icon_8 (index 0 = icon_1).
-//   m_BlurFrames          — flat list of every blur PNG, ordered by icon then frame:
-//                           icon_1_00..icon_1_04, icon_2_00..icon_2_04, ..., icon_8_00..icon_8_04.
-//                           Each slot picks a random icon group at spin start and loops it.
+// Orchestrates a single reel's strip of SymbolViews.
 public class ReelView : MonoBehaviour
 {
     [Header("Strip")]
-    [SerializeField] private SpriteRenderer[] m_SymbolRenderers;
+    [SerializeField] private List<SymbolView> m_SymbolViews = new();
     [SerializeField] private int[] m_VisibleSlotIndices;
 
     [Header("Sprites")]
     [SerializeField] private Sprite[] m_IconSprites;
     [SerializeField] private Sprite[] m_BlurFrames;
     [SerializeField] private int m_BlurFramesPerIcon = 5;
+
+    [Header("Win")]
+    // One entry per symbol id, parallel to m_IconSprites (index = symbolId - 1).
+    [SerializeField] private SymbolWinAnimation[] m_WinAnimations;
+    [SerializeField] private float m_WinFrameRate = 18f;
 
     [Header("Motion")]
     [SerializeField] private float m_SpinSpeed = 20f;
@@ -41,25 +28,19 @@ public class ReelView : MonoBehaviour
     [SerializeField] private float m_BounceAmount = 0.3f;
     [SerializeField] private float m_BounceDuration = 0.2f;
 
-    private float[] m_RestY;
     private float m_WrapBelow;
     private float m_TotalSpan;
     private Coroutine m_ScrollCoroutine;
-    private Coroutine[] m_BlurCoroutines;
 
-    private void Awake()
+    // Runs in Start so every SymbolView.Awake has captured its rest position first.
+    private void Start()
     {
-        m_RestY = new float[m_SymbolRenderers.Length];
         float minY = float.MaxValue;
-        for (int i = 0; i < m_SymbolRenderers.Length; i++)
-        {
-            m_RestY[i] = m_SymbolRenderers[i].transform.localPosition.y;
-            if (m_RestY[i] < minY) minY = m_RestY[i];
-        }
+        for (int i = 0; i < m_SymbolViews.Count; i++)
+            if (m_SymbolViews[i].RestY < minY) minY = m_SymbolViews[i].RestY;
 
-        m_TotalSpan = m_SymbolSpacing * m_SymbolRenderers.Length;
+        m_TotalSpan = m_SymbolSpacing * m_SymbolViews.Count;
         m_WrapBelow = minY - m_SymbolSpacing;
-        m_BlurCoroutines = new Coroutine[m_SymbolRenderers.Length];
     }
 
     public void StartSpin()
@@ -69,12 +50,8 @@ public class ReelView : MonoBehaviour
 
         m_ScrollCoroutine = StartCoroutine(ScrollLoop());
 
-        for (int i = 0; i < m_SymbolRenderers.Length; i++)
-        {
-            if (m_BlurCoroutines[i] != null)
-                StopCoroutine(m_BlurCoroutines[i]);
-            m_BlurCoroutines[i] = StartCoroutine(BlurLoop(i));
-        }
+        for (int i = 0; i < m_SymbolViews.Count; i++)
+            m_SymbolViews[i].StartBlur(m_BlurFrames, m_BlurFramesPerIcon, m_BlurFrameRate);
     }
 
     public IEnumerator StopSpin(int[] finalSymbolIds)
@@ -85,23 +62,44 @@ public class ReelView : MonoBehaviour
             m_ScrollCoroutine = null;
         }
 
-        for (int i = 0; i < m_BlurCoroutines.Length; i++)
-        {
-            if (m_BlurCoroutines[i] != null)
-            {
-                StopCoroutine(m_BlurCoroutines[i]);
-                m_BlurCoroutines[i] = null;
-            }
-        }
+        for (int i = 0; i < m_SymbolViews.Count; i++)
+            m_SymbolViews[i].StopBlur();
 
         SnapToRest();
         ApplyFinalSymbols(finalSymbolIds);
         yield return PlayBounce();
     }
 
-    // Scrolls every slot downward; wraps any slot that crosses the bottom threshold
-    // back above the top of the strip. Using a single shared offset keeps all slots
-    // perfectly equidistant regardless of how many extras are in the strip.
+    public void PlayWinAt(int visibleRow)
+    {
+        SymbolView symbol = SymbolForVisibleRow(visibleRow);
+        if (symbol == null) return;
+
+        int animationIndex = symbol.SymbolId - 1;
+        if (m_WinAnimations == null || animationIndex < 0 || animationIndex >= m_WinAnimations.Length)
+            return;
+
+        symbol.PlayWin(m_WinAnimations[animationIndex]?.Frames, m_WinFrameRate);
+    }
+
+    public void StopWinAt(int visibleRow)
+    {
+        SymbolForVisibleRow(visibleRow)?.StopWin();
+    }
+
+    public bool TryGetVisibleSymbolPosition(int visibleRow, out Vector3 position)
+    {
+        SymbolView symbol = SymbolForVisibleRow(visibleRow);
+        if (symbol == null)
+        {
+            position = default;
+            return false;
+        }
+
+        position = symbol.WorldPosition;
+        return true;
+    }
+
     private IEnumerator ScrollLoop()
     {
         float offset = 0f;
@@ -109,52 +107,20 @@ public class ReelView : MonoBehaviour
         {
             offset += m_SpinSpeed * Time.deltaTime;
 
-            for (int i = 0; i < m_SymbolRenderers.Length; i++)
+            for (int i = 0; i < m_SymbolViews.Count; i++)
             {
-                float y = m_RestY[i] - offset;
+                float y = m_SymbolViews[i].RestY - offset;
 
                 while (y < m_WrapBelow)
                     y += m_TotalSpan;
 
-                Transform transform = m_SymbolRenderers[i].transform;
-                Vector3 pos = transform.localPosition;
-                pos.y = y;
-                transform.localPosition = pos;
+                m_SymbolViews[i].SetLocalY(y);
             }
 
             yield return null;
         }
     }
 
-    private IEnumerator BlurLoop(int slotIndex)
-    {
-        if (m_BlurFrames == null || m_BlurFrames.Length == 0)
-        {
-            Debug.LogWarning($"{gameObject.name}: Blur frames are empty", this);
-            yield break;
-        }
-
-        int framesPerIcon = Mathf.Max(1, m_BlurFramesPerIcon);
-        int iconCount = Mathf.Max(1, m_BlurFrames.Length / framesPerIcon);
-        int startIdx = Random.Range(0, iconCount) * framesPerIcon;
-        int frame = 0;
-        WaitForSeconds wait = new WaitForSeconds(1f / m_BlurFrameRate);
-
-        // Set the first frame immediately so the swap is visible without waiting one tick.
-        m_SymbolRenderers[slotIndex].sprite = m_BlurFrames[startIdx];
-
-        while (true)
-        {
-            yield return wait;
-            frame = (frame + 1) % framesPerIcon;
-            int idx = startIdx + frame;
-            if (idx >= m_BlurFrames.Length) idx = startIdx;
-            m_SymbolRenderers[slotIndex].sprite = m_BlurFrames[idx];
-        }
-    }
-
-    
-    // mimicking the physics of a reel landing with bounce
     private IEnumerator PlayBounce()
     {
         if (m_BounceDuration <= 0f || m_BounceAmount == 0f)
@@ -164,16 +130,11 @@ public class ReelView : MonoBehaviour
         while (elapsed < m_BounceDuration)
         {
             elapsed += Time.deltaTime;
-            float t01 = Mathf.Clamp01(elapsed / m_BounceDuration);
-            float displacement = Mathf.Sin(t01 * Mathf.PI) * m_BounceAmount;
+            float normalizedTime = Mathf.Clamp01(elapsed / m_BounceDuration);
+            float displacement = Mathf.Sin(normalizedTime * Mathf.PI) * m_BounceAmount;
 
-            for (int i = 0; i < m_SymbolRenderers.Length; i++)
-            {
-                Transform transform = m_SymbolRenderers[i].transform;
-                Vector3 pos = transform.localPosition;
-                pos.y = m_RestY[i] - displacement;
-                transform.localPosition = pos;
-            }
+            for (int i = 0; i < m_SymbolViews.Count; i++)
+                m_SymbolViews[i].SetLocalY(m_SymbolViews[i].RestY - displacement);
 
             yield return null;
         }
@@ -181,45 +142,57 @@ public class ReelView : MonoBehaviour
         SnapToRest();
     }
 
-    // On stop, the scroll and blur coroutines end immediately, so some slots may be mid-scroll or mid-blur.
     private void SnapToRest()
     {
-        for (int i = 0; i < m_SymbolRenderers.Length; i++)
-        {
-            Transform transform = m_SymbolRenderers[i].transform;
-            Vector3 pos = transform.localPosition;
-            pos.y = m_RestY[i];
-            transform.localPosition = pos;
-        }
+        for (int i = 0; i < m_SymbolViews.Count; i++)
+            m_SymbolViews[i].SnapToRest();
     }
 
     private void ApplyFinalSymbols(int[] finalSymbolIds)
     {
         if (m_IconSprites == null || m_IconSprites.Length == 0)
         {
-            Debug.LogWarning($"{gameObject.name}: m_IconSprites is empty — assign icon sprites in the Inspector.", this);
+            Debug.LogWarning($"{gameObject.name}: m_IconSprites is empty - assign icon sprites in the Inspector.", this);
             return;
         }
 
         bool hasVisibleMap = m_VisibleSlotIndices != null && m_VisibleSlotIndices.Length > 0;
 
-        // Visible rows get the engine's final symbols
-        for (int v = 0; v < finalSymbolIds.Length; v++)
+        for (int visibleRow = 0; visibleRow < finalSymbolIds.Length; visibleRow++)
         {
-            int slot = hasVisibleMap ? m_VisibleSlotIndices[v] : v;
-            if (slot < 0 || slot >= m_SymbolRenderers.Length) continue;
+            int slot = hasVisibleMap ? m_VisibleSlotIndices[visibleRow] : visibleRow;
+            if (slot < 0 || slot >= m_SymbolViews.Count) continue;
 
-            int idx = Mathf.Clamp(finalSymbolIds[v] - 1, 0, m_IconSprites.Length - 1);
-            m_SymbolRenderers[slot].sprite = m_IconSprites[idx];
+            int spriteIndex = Mathf.Clamp(finalSymbolIds[visibleRow] - 1, 0, m_IconSprites.Length - 1);
+            m_SymbolViews[slot].SetSymbol(finalSymbolIds[visibleRow], m_IconSprites[spriteIndex]);
         }
 
-        // Off-screen extras get random icons so they're populated when they scroll in next spin.
-        for (int i = 0; i < m_SymbolRenderers.Length; i++)
+        for (int i = 0; i < m_SymbolViews.Count; i++)
         {
             if (IsVisibleSlot(i, hasVisibleMap, finalSymbolIds.Length)) continue;
-            int rand = Random.Range(0, m_IconSprites.Length);
-            m_SymbolRenderers[i].sprite = m_IconSprites[rand];
+            int randomIndex = Random.Range(0, m_IconSprites.Length);
+            m_SymbolViews[i].SetSymbol(randomIndex + 1, m_IconSprites[randomIndex]);
         }
+    }
+
+    private int SlotForVisibleRow(int visibleRow)
+    {
+        bool hasVisibleMap = m_VisibleSlotIndices != null && m_VisibleSlotIndices.Length > 0;
+
+        if (hasVisibleMap)
+        {
+            return visibleRow >= 0 && visibleRow < m_VisibleSlotIndices.Length
+                ? m_VisibleSlotIndices[visibleRow]
+                : -1;
+        }
+
+        return visibleRow;
+    }
+
+    private SymbolView SymbolForVisibleRow(int visibleRow)
+    {
+        int slot = SlotForVisibleRow(visibleRow);
+        return slot >= 0 && slot < m_SymbolViews.Count ? m_SymbolViews[slot] : null;
     }
 
     private bool IsVisibleSlot(int index, bool hasVisibleMap, int defaultVisibleCount)
@@ -230,6 +203,13 @@ public class ReelView : MonoBehaviour
                 if (m_VisibleSlotIndices[i] == index) return true;
             return false;
         }
+
         return index < defaultVisibleCount;
     }
+}
+
+[System.Serializable]
+public class SymbolWinAnimation
+{
+    public Sprite[] Frames;
 }

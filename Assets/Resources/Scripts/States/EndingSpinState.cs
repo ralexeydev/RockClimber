@@ -7,7 +7,9 @@ public class EndingSpinState : BaseGameState
     {
         // Clear context data so stale results cannot bleed into the next spin cycle.
         Context.CurrentSpinResult = null;
+        Context.CurrentDemoTicket = null;
         Context.CurrentBet = 0;
+        Context.CurrentSpinSource = SpinStartSource.None;
         Context.StateMachine.TransitionTo(GameState.Idle);
     }
 

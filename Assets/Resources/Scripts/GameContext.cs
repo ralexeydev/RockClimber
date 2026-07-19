@@ -15,11 +15,15 @@ public class GameContext
     public ISlotEngine Engine { get; }
     public VisualSequenceController Visuals { get; }
     public SpinButtonView SpinButton { get; }
+    public DemoController Demo { get; }
+    public WinPoolController WinPool { get; }
 
     // Mutable spin data shared across states within a single spin cycle.
     // Cleared by EndingSpinState when the cycle is complete.
     public SpinResult CurrentSpinResult { get; set; }
     public int CurrentBet { get; set; }
+    public DemoTicket CurrentDemoTicket { get; set; }
+    public SpinStartSource CurrentSpinSource { get; set; }
 
     public GameContext(
         MonoBehaviour coroutineRunner,
@@ -28,7 +32,9 @@ public class GameContext
         BetController bet,
         ISlotEngine engine,
         VisualSequenceController visuals,
-        SpinButtonView spinButton)
+        SpinButtonView spinButton,
+        DemoController demo,
+        WinPoolController winPool)
     {
         CoroutineRunner = coroutineRunner;
         StateMachine = stateMachine;
@@ -37,5 +43,19 @@ public class GameContext
         Engine = engine;
         Visuals = visuals;
         SpinButton = spinButton;
+        Demo = demo;
+        WinPool = winPool;
     }
+
+    public bool CanStartSpin()
+    {
+        return Balance.CanPayBet(Bet.CurrentBet);
+    }
+}
+
+public enum SpinStartSource
+{
+    None,
+    SpinButton,
+    DemoMenu
 }

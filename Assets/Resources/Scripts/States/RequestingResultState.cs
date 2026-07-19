@@ -11,9 +11,39 @@ public class RequestingResultState : BaseGameState
     {
         SpinResult result = null;
 
+        int currentBet = Context.CurrentBet;
+        var request = new SpinRequest { Bet = currentBet };
+
+        bool isDemoSpin = Context.CurrentSpinSource == SpinStartSource.DemoMenu;
+        DemoTicket demoTicket = isDemoSpin && Context.Demo != null
+            ? Context.Demo.ConsumePending()
+            : null;
+
+        if (demoTicket != null)
+        {
+            request.PlayTicketOverrideXml = demoTicket.PlayXml;
+            Context.CurrentDemoTicket = demoTicket;
+        }
+        else
+        {
+            Context.CurrentDemoTicket = null;
+        }
+
+        // Paid spins draw from the win pool when it is active. If a demo ticket
+        // is present, it replaces the generated PLAY ticket inside the engine.
+        int? target = Context.WinPool != null
+            ? Context.WinPool.DrawTarget(currentBet)
+            : null;
+        if (target.HasValue)
+        {
+            request.TargetWin = target.Value;
+            Debug.Log($"RequestingResultState: win-pool target {target.Value} " +
+                $"(x{Context.WinPool.LastMultiplier} of bet {Context.CurrentBet})");
+        }
+
         try
         {
-            result = Context.Engine.GenerateSpinResult(new SpinRequest { Bet = Context.CurrentBet });
+            result = Context.Engine.GenerateSpinResult(request);
         }
         catch (Exception e)
         {
@@ -25,6 +55,11 @@ public class RequestingResultState : BaseGameState
         {
             Context.StateMachine.TransitionTo(GameState.Error);
             return;
+        }
+
+        if (demoTicket != null)
+        {
+            Context.Demo.AssertResult(demoTicket, result);
         }
 
         Context.CurrentSpinResult = result;

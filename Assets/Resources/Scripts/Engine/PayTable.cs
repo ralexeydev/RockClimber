@@ -32,7 +32,7 @@ public class PayTable
             m_ById[e.Id] = e;
     }
 
-    public Entry Get(int id) => m_ById.TryGetValue(id, out var e) ? e : null;
-    public bool IsWild(int id) => m_ById.TryGetValue(id, out var e) && e.IsWild;
-    public bool IsScatter(int id) => m_ById.TryGetValue(id, out var e) && e.IsScatter;
+    public Entry Get(int id) => m_ById.TryGetValue(id, out var entry) ? entry : null;
+    public bool IsWild(int id) => m_ById.TryGetValue(id, out var entry) && entry.IsWild;
+    public bool IsScatter(int id) => m_ById.TryGetValue(id, out var entry) && entry.IsScatter;
 }

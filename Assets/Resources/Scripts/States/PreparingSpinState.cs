@@ -8,6 +8,7 @@ public class PreparingSpinState : BaseGameState
     {
         Context.CurrentBet = Context.Bet.CurrentBet;
         Context.Balance.PayBet(Context.CurrentBet);
+
         Context.StateMachine.TransitionTo(GameState.RequestingResult);
     }
 

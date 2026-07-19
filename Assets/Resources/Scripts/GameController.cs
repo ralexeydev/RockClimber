@@ -10,6 +10,8 @@ public class GameController : BaseController
     [SerializeField] private BalanceController m_BalanceController;
     [SerializeField] private VisualSequenceController m_VisualSequenceController;
     [SerializeField] private SlotConfigSO m_SlotConfig;
+    [SerializeField] private DemoController m_DemoController;
+    [SerializeField] private WinPoolController m_WinPoolController;
 
     private GameStateMachine m_StateMachine;
 
@@ -32,7 +34,9 @@ public class GameController : BaseController
             bet: m_BetController,
             engine: engine,
             visuals: m_VisualSequenceController,
-            spinButton: m_SpinButtonView
+            spinButton: m_SpinButtonView,
+            demo: m_DemoController,
+            winPool: m_WinPoolController
         );
 
         // Register every state before starting 
@@ -43,7 +47,7 @@ public class GameController : BaseController
         m_StateMachine.RegisterState(GameState.PreparingSpin, new PreparingSpinState(context));
         m_StateMachine.RegisterState(GameState.RequestingResult, new RequestingResultState(context));
         m_StateMachine.RegisterState(GameState.Spinning, new SpinningState(context));
-        m_StateMachine.RegisterState(GameState.PresentingWins, new PresentingWinsState(context));
+        m_StateMachine.RegisterState(GameState.PresentingWins, new ShowWinningState(context));
         m_StateMachine.RegisterState(GameState.Feature, new FeatureState(context));
         m_StateMachine.RegisterState(GameState.EndingSpin, new EndingSpinState(context));
         m_StateMachine.RegisterState(GameState.Error, new ErrorState(context));

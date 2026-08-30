@@ -15,6 +15,44 @@ MonoBehaviour:
   Entries:
   - Id: 0
     IsWild: 1
-    IsScatter: 1
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
+    Payouts: 90010000e2040000d4300000
+  - Id: 1
+    IsWild: 0
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
+    Payouts: e1000000f4010000c4090000
+  - Id: 2
+    IsWild: 0
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
+    Payouts: af0000005e010000b6030000
+  - Id: 3
+    IsWild: 0
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
+    Payouts: 960000004501000071020000
+  - Id: 4
+    IsWild: 0
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
+    Payouts: 64000000fa00000077010000
+  - Id: 5
+    IsWild: 0
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
+    Payouts: 3200000096000000c8000000
+  - Id: 6
+    IsWild: 0
+    IsFreeplayTrigger: 0
+    IsFeatureTrigger: 0
     Payouts: 19000000320000004b000000
+  - Id: 7
+    IsWild: 0
+    IsFreeplayTrigger: 1
+    IsFeatureTrigger: 0
+    Payouts: 000000000000000000000000
   FreeSpinAwards: 0a0000000f000000190000001900000019000000190000001900000019000000190000001900000064000000
+  FreeplayTriggerMinimumCount: 3
+  FeatureTriggerMinimumCount: 3

@@ -1,146 +1,203 @@
 using System.Collections.Generic;
 
-// One winning combination produced by ways-pay evaluation.
+// One winning symbol group produced by ways-pay evaluation.
 public class WaysWin
 {
     public int SymbolId;
-    public int ColumnsMatched; // 3, 4, or 5
-    public int Ways;           // product of matching cells across the columns
-    public int Payout;         // already includes ways * bet multipliers
+    public int ColumnsMatched;
+    public int Ways;
+    public int Payout;
+
+    // Union of every symbol and wild involved in this symbol's winning ways.
+    public List<int> WinningPositions = new();
+
+    // Individual paths remain available as result data, although presentation
+    // animates their union simultaneously for each winning symbol.
+    public List<List<int>> WinningPaths = new();
 }
 
-// Ways-pay evaluator: a symbol wins when it (or a wild substitute) appears in the
-// leftmost N consecutive reels, with N >= 3. The number of "ways" equals the
-// product of matching cells per column — e.g. a board with 2 cells in reel 0,
-// 1 in reel 1, and 3 in reel 2 yields 2 * 1 * 3 = 6 ways.
-//
-// Wild substitutes for every non-scatter symbol and also has its own line.
-// Scatter is evaluated separately: pays anywhere on the board and awards free
-// spins based on how many landed.
-
-//TODO: make ways individually for animating when multiple ways wins occur on the same spin
+// Ways are evaluated only for paying symbols. Freeplay and feature triggers are
+// counted independently and never contribute payout or a WaysWin.
 public static class WaysEvaluator
 {
     public class Result
     {
         public List<WaysWin> WaysWins = new();
         public int TotalWin;
-        public int ScatterCount;
+
+        public int FreeplayTriggerCount;
+        public List<int> FreeplayTriggerPositions = new();
         public int FreeSpinsAwarded;
+
+        public int FeatureTriggerCount;
+        public List<int> FeatureTriggerPositions = new();
+        public bool FeatureTriggered;
     }
 
-    public static Result Evaluate(int[,] board, PayTable paytable, int bet)
+    public static Result Evaluate(int[,] board, PayTable paytable, int betLevel)
     {
-        Result result = new Result();
+        Result result = new();
         int reels = board.GetLength(0);
         int rows = board.GetLength(1);
 
-        EvaluateScatter(board, paytable, bet, reels, rows, result);
-        EvaluateWays(board, paytable, bet, reels, rows, result);
+        EvaluateTriggers(board, paytable, reels, rows, result);
+        EvaluateWays(board, paytable, betLevel, reels, rows, result);
 
         return result;
     }
 
-    private static void EvaluateScatter(int[,] board, PayTable paytable, int bet, int reels, int rows, Result result)
+    private static void EvaluateTriggers(
+        int[,] board,
+        PayTable paytable,
+        int reels,
+        int rows,
+        Result result)
     {
-        for (int c = 0; c < reels; c++)
-            for (int r = 0; r < rows; r++)
-                if (paytable.IsScatter(board[c, r]))
-                    result.ScatterCount++;
-
-        if (result.ScatterCount < 3) return;
-
-        PayTable.Entry scatter = null;
-
-        foreach (var e in paytable.Entries)
+        for (int col = 0; col < reels; col++)
         {
-            if (e.IsScatter)
+            for (int row = 0; row < rows; row++)
             {
-                scatter = e;
-                break;
+                int symbolId = board[col, row];
+                int position = FindPosition(col, row, reels);
+
+                if (paytable.IsFreeplayTrigger(symbolId))
+                {
+                    result.FreeplayTriggerCount++;
+                    result.FreeplayTriggerPositions.Add(position);
+                }
+
+                if (paytable.IsFeatureTrigger(symbolId))
+                {
+                    result.FeatureTriggerCount++;
+                    result.FeatureTriggerPositions.Add(position);
+                }
             }
         }
 
-        if (scatter != null && scatter.Payouts != null && scatter.Payouts.Length > 0)
+        if (result.FreeplayTriggerCount >= paytable.FreeplayTriggerMinimumCount &&
+            paytable.FreeSpinAwards != null &&
+            paytable.FreeSpinAwards.Count > 0)
         {
-            int idx = result.ScatterCount - 3;
-            if (idx < 0) idx = 0;
-            if (idx >= scatter.Payouts.Length) idx = scatter.Payouts.Length - 1;
+            int awardIndex = result.FreeplayTriggerCount - paytable.FreeplayTriggerMinimumCount;
+            if (awardIndex >= paytable.FreeSpinAwards.Count)
+                awardIndex = paytable.FreeSpinAwards.Count - 1;
 
-            int payout = scatter.Payouts[idx] * bet;
-            result.TotalWin += payout;
-            result.WaysWins.Add(new WaysWin
-            {
-                SymbolId = scatter.Id,
-                ColumnsMatched = result.ScatterCount,
-                Ways = 1,
-                Payout = payout
-            });
+            result.FreeSpinsAwarded = paytable.FreeSpinAwards[awardIndex];
         }
 
-        // Map scatter count to free spins via the paytable's FreeSpinAwards table:
-        // index 0 = 3 scatters, 1 = 4, last index = 5+ (clamped).
-        if (paytable.FreeSpinAwards != null && paytable.FreeSpinAwards.Count > 0)
-        {
-            int awardIdx = result.ScatterCount - 3;
-            if (awardIdx < 0) awardIdx = 0;
-            if (awardIdx >= paytable.FreeSpinAwards.Count) awardIdx = paytable.FreeSpinAwards.Count - 1;
-            result.FreeSpinsAwarded = paytable.FreeSpinAwards[awardIdx];
-        }
+        result.FeatureTriggered =
+            result.FeatureTriggerCount >= paytable.FeatureTriggerMinimumCount;
     }
 
-    private static void EvaluateWays(int[,] board, PayTable paytable, int bet, int reels, int rows, Result result)
+    private static void EvaluateWays(
+        int[,] board,
+        PayTable paytable,
+        int betLevel,
+        int reelsCount,
+        int rows,
+        Result result)
     {
-        int[] columnMatches = new int[reels];
+        int[] columnMatches = new int[reelsCount];
+        List<int>[] columnPositions = new List<int>[reelsCount];
 
-        foreach (var entry in paytable.Entries)
+        foreach (PayTable.Entry entry in paytable.Entries)
         {
-            if (entry.IsScatter) continue;
+            if (entry.IsTrigger)
+                continue;
 
             int consecutive = 0;
+            bool hasNaturalSymbol = false;
 
-            for (int col = 0; col < reels; col++)
+            for (int col = 0; col < reelsCount; col++)
             {
                 int matches = 0;
+                List<int> positions = null;
+
                 for (int row = 0; row < rows; row++)
                 {
                     int cell = board[col, row];
+                    bool isMatch = cell == entry.Id || (!entry.IsWild && paytable.IsWild(cell));
+
+                    if (!isMatch) continue;
+
                     if (cell == entry.Id)
-                        matches++;
-                    else if (!entry.IsWild && paytable.IsWild(cell))
-                        matches++;
+                        hasNaturalSymbol = true;
+
+                    matches++;
+                    positions ??= new List<int>();
+                    positions.Add(FindPosition(col, row, reelsCount));
                 }
 
                 if (matches == 0)
                     break;
 
                 columnMatches[col] = matches;
+                columnPositions[col] = positions;
                 consecutive++;
             }
 
             if (consecutive < 3)
                 continue;
 
-            if (entry.Payouts == null || entry.Payouts.Length < consecutive - 2) continue;
+            // A board made exclusively from wilds is paid once by the wild's
+            // own entry, rather than once again for every regular symbol.
+            if (!entry.IsWild && !hasNaturalSymbol)
+                continue;
+
+            if (entry.Payouts == null || entry.Payouts.Length < consecutive - 2)
+                continue;
 
             int ways = 1;
-            for (int c = 0; c < consecutive; c++)
-                ways *= columnMatches[c];
+            for (int col = 0; col < consecutive; col++)
+                ways *= columnMatches[col];
 
-            int payout = ways * entry.Payouts[consecutive - 3] * bet;
-
+            int payout = ways * entry.Payouts[consecutive - 3] * betLevel;
             if (payout <= 0)
                 continue;
+
+            List<int> winningPositions = new();
+            for (int col = 0; col < consecutive; col++)
+                winningPositions.AddRange(columnPositions[col]);
 
             result.WaysWins.Add(new WaysWin
             {
                 SymbolId = entry.Id,
                 ColumnsMatched = consecutive,
                 Ways = ways,
-                Payout = payout
+                Payout = payout,
+                WinningPositions = winningPositions,
+                WinningPaths = BuildWinningPaths(columnPositions, consecutive)
             });
 
             result.TotalWin += payout;
         }
+    }
+
+    public static int FindPosition(int col, int row, int reelsCount)
+    {
+        return row * reelsCount + col;
+    }
+
+    private static List<List<int>> BuildWinningPaths(List<int>[] columnPositions, int columnsMatched)
+    {
+        List<List<int>> paths = new() { new List<int>() };
+
+        for (int col = 0; col < columnsMatched; col++)
+        {
+            List<List<int>> expanded = new();
+
+            foreach (List<int> path in paths)
+            {
+                foreach (int position in columnPositions[col])
+                {
+                    List<int> nextPath = new(path) { position };
+                    expanded.Add(nextPath);
+                }
+            }
+
+            paths = expanded;
+        }
+
+        return paths;
     }
 }

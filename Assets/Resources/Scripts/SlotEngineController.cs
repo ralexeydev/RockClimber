@@ -13,6 +13,6 @@ public class SlotEngineController : ISlotEngine
 
     public SpinResult GenerateSpinResult(SpinRequest request)
     {
-        return m_Engine.GenerateSpinResult(request);
+        return m_Engine.BuildSpinResult(request);
     }
 }

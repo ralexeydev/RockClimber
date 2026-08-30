@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Weighted target-win pool. Each <Win> entry declares a payout expressed as a
+  multiplier of the current bet (multiplier="0" means a losing spin) and a
+  relative weight. WinPoolController draws an entry by weight, multiplies by the
+  bet to get a target coin amount, and the engine searches the reel strips for a
+  board whose total win matches (or comes closest to) that amount.
+
+  Weights are relative, not percentages: they are summed and normalized at draw
+  time, so they need not add up to 100.
+-->
+<WinPool>
+  <Values>
+	  wins="0 250 375 500 750 1000 1250 1500 1750 2000 2250 2500 2750 3000 3250 3500 3750 4000 4250 4500 4750 5000 5250 5500 6000 7000 7500 8000 8500 9000 10000 11000 12000 13500 14000 14500 15000 16000 16500 17000 18000 19000 20000 22000 22500 30000 32500 40000 150000"
+	  weights="1000 900 850 800 760 720 680 640 600 560 530 500 470 440 410 380 350 320 290 260 240 220 200 180 160 140 130 120 110 100 90 80 70 60 55 50 45 40 36 32 28 24 20 16 14 8 6 3 1"
+
+  </Values>
+</WinPool>

@@ -12,7 +12,11 @@ public class RequestingResultState : BaseGameState
         SpinResult result = null;
 
         int currentBet = Context.CurrentBet;
-        var request = new SpinRequest { Bet = currentBet };
+        var request = new SpinRequest
+        {
+            Bet = currentBet,
+            BetLevel = Context.CurrentBetLevel
+        };
 
         bool isDemoSpin = Context.CurrentSpinSource == SpinStartSource.DemoMenu;
         DemoTicket demoTicket = isDemoSpin && Context.Demo != null
@@ -31,14 +35,21 @@ public class RequestingResultState : BaseGameState
 
         // Paid spins draw from the win pool when it is active. If a demo ticket
         // is present, it replaces the generated PLAY ticket inside the engine.
-        int? target = Context.WinPool != null
+        int? target = demoTicket == null && Context.WinPool != null
             ? Context.WinPool.DrawTarget(currentBet)
             : null;
         if (target.HasValue)
         {
             request.TargetWin = target.Value;
-            Debug.Log($"RequestingResultState: win-pool target {target.Value} " +
-                $"(x{Context.WinPool.LastMultiplier} of bet {Context.CurrentBet})");
+            if (Context.WinPool.ForcedWin)
+            {
+                Debug.Log($"RequestingResultState: forced target win {target.Value} cents");
+            }
+            else
+            {
+                Debug.Log($"RequestingResultState: win-pool target {target.Value} " +
+                    $"(x{Context.WinPool.LastMultiplier} of bet {Context.CurrentBet})");
+            }
         }
 
         try
@@ -55,6 +66,14 @@ public class RequestingResultState : BaseGameState
         {
             Context.StateMachine.TransitionTo(GameState.Error);
             return;
+        }
+
+        // The resolver tries to find a matching board, but its finite search can
+        // return the closest payout. Debug forcing must always pay the exact
+        // inspector amount, expressed in cents.
+        if (demoTicket == null && Context.WinPool != null && Context.WinPool.ForcedWin)
+        {
+            result.TotalWin = Context.WinPool.ForcedTotalWin;
         }
 
         if (demoTicket != null)

@@ -1,79 +1,79 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Xml.Serialization;
+using System.Linq;
 using System.Xml.Linq;
 using UnityEngine;
 
-// Loads every *.xml ticket under a directory into a list of DemoTicket.
-// Sync File.ReadAllText is fine: small files, called once at boot, editor/standalone only.
+// Loads the ordered BUTTON list from StreamingAssets/DemoTickets/demos.xml.
 public static class DemoTicketLoader
 {
-    public static List<DemoTicket> LoadAll(string directory)
+    public static List<DemoTicket> LoadAll(string path)
     {
         var tickets = new List<DemoTicket>();
 
-        if (!Directory.Exists(directory))
+        if (!File.Exists(path))
         {
-            Debug.LogWarning($"DemoTicketLoader: directory not found — {directory}");
+            Debug.LogWarning($"DemoTicketLoader: file not found - {path}");
             return tickets;
         }
 
-        foreach (var path in Directory.GetFiles(directory, "*.xml"))
+        try
         {
-            try
+            XDocument document = XDocument.Load(path);
+            XElement root = document.Root;
+            if (root == null)
+                throw new FormatException("Demo XML has no root element.");
+
+            foreach (XElement button in root.Elements()
+                         .Where(element => HasName(element, "BUTTON")))
             {
-                var ticket = Load(path);
-                if (ticket != null)
-                    tickets.Add(ticket);
+                tickets.Add(LoadButton(button));
             }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"DemoTicketLoader: failed to parse {path} — {e.Message}");
-            }
+
+            if (tickets.Count == 0)
+                Debug.LogWarning($"DemoTicketLoader: no BUTTON entries found in {path}");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"DemoTicketLoader: failed to parse {path} - {exception.Message}");
+            tickets.Clear();
         }
 
-        tickets.Sort((a, b) => string.Compare(a.Id, b.Id, System.StringComparison.Ordinal));
         return tickets;
     }
 
-    private static DemoTicket Load(string path)
+    private static DemoTicket LoadButton(XElement button)
     {
-        XDocument doc = XDocument.Load(path);
-        XElement root = doc.Root;
+        string name = ((string)button.Attribute("name"))?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            throw new FormatException("Every BUTTON requires a non-empty 'name' attribute.");
 
-        if (root != null && root.Name.LocalName == "PLAY")
+        XElement play = button.Descendants()
+            .FirstOrDefault(element => HasName(element, "PLAY"));
+
+        // An escaped or CDATA PLAY payload is accepted too.
+        if (play == null && !string.IsNullOrWhiteSpace(button.Value))
+            play = XElement.Parse(button.Value.Trim());
+
+        if (play == null || !HasName(play, "PLAY"))
+            throw new FormatException($"BUTTON '{name}' does not contain a PLAY ticket.");
+
+        string playXml = play.ToString(SaveOptions.DisableFormatting);
+        PlayTicket.Parse(playXml);
+
+        string id = ((string)button.Attribute("id"))?.Trim();
+        return new DemoTicket
         {
-            return new DemoTicket
-            {
-                Id = Path.GetFileNameWithoutExtension(path),
-                Description = Path.GetFileNameWithoutExtension(path),
-                PlayXml = root.ToString(SaveOptions.DisableFormatting)
-            };
-        }
+            Name = name,
+            Id = string.IsNullOrWhiteSpace(id) ? name : id,
+            Description = name,
+            PlayXml = playXml
+        };
+    }
 
-        var serializer = new XmlSerializer(typeof(DemoTicket));
-        using var stream = File.OpenRead(path);
-        var ticket = (DemoTicket)serializer.Deserialize(stream);
-
-        if (ticket?.PlayElement != null)
-            ticket.PlayXml = ticket.PlayElement.OuterXml;
-
-        if (ticket != null && string.IsNullOrWhiteSpace(ticket.PlayXml) && ticket.ReelStops != null)
-        {
-            int totalWin = ticket.ExpectedTotalWin;
-            var legacy = new PlayTicket
-            {
-                ReelStops = ticket.ReelStops,
-                CombinationWin = totalWin,
-                TotalWin = totalWin,
-                FeatureElementId = 0,
-                ShowPrizes = false,
-                BonusId = 0,
-                FeatureId = 0
-            };
-            ticket.PlayXml = legacy.ToXml();
-        }
-
-        return ticket;
+    private static bool HasName(XElement element, string expected)
+    {
+        return string.Equals(element.Name.LocalName, expected, StringComparison.OrdinalIgnoreCase);
     }
 }

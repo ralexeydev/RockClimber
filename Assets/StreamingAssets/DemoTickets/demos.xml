@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BUTTON order is the menu order; name is the exact label shown in the menu.
+  Each nested PLAY ticket is authoritative and reproducible.
+-->
+<DEMOS>
+  <BUTTON name="No Win">
+    <PLAY RS="0 0 3 0 0" sWin="0" TotalWin="0">
+      <FEATURE id="0" />
+      <FID id="0" />
+    </PLAY>
+  </BUTTON>
+  <BUTTON name="Regular 3 Columns - 1 Way">
+    <PLAY RS="0 0 2 3 0" sWin="150" TotalWin="150">
+      <FEATURE id="0" />
+      <FID id="0" />
+    </PLAY>
+  </BUTTON>
+  <BUTTON name="Regular 5 Columns - 6 Ways">
+    <PLAY RS="0 0 2 6 7" sWin="3750" TotalWin="3750">
+      <FEATURE id="0" />
+      <FID id="0" />
+    </PLAY>
+  </BUTTON>
+  <BUTTON name="Wild Substitution - 1 Way">
+    <PLAY RS="0 0 2 0 5" sWin="625" TotalWin="625">
+      <FEATURE id="0" />
+      <FID id="0" />
+    </PLAY>
+  </BUTTON>
+  <BUTTON name="Wild Own Pay - 108 Ways">
+    <PLAY RS="6 6 7 7 7" sWin="1350000" TotalWin="1350000">
+      <FEATURE id="0" />
+      <FID id="0" />
+    </PLAY>
+  </BUTTON>
+  <BUTTON name="3 Freeplay Triggers">
+    <PLAY RS="0 0 4 4 4" sWin="0" TotalWin="0">
+      <FEATURE id="0" />
+      <FID id="0" />
+    </PLAY>
+  </BUTTON>
+</DEMOS>

@@ -12,6 +12,9 @@ public class IdleState : BaseGameState
     {
         Context.SpinButton.SetInteractable(true);
         Context.SpinButton.OnSpinClicked += HandleSpinClicked;
+        Context.BetButton.SetBetDisplay(Context.Bet.CurrentBet, Context.Bet.CurrentBetLevel);
+        Context.BetButton.SetInteractable(true);
+        Context.BetButton.OnBetClicked += HandleBetClicked;
 
         if (Context.Demo != null)
             Context.Demo.OnTicketQueued += HandleDemoTicketQueued;
@@ -21,6 +24,8 @@ public class IdleState : BaseGameState
     {
         Context.SpinButton.OnSpinClicked -= HandleSpinClicked;
         Context.SpinButton.SetInteractable(false);
+        Context.BetButton.OnBetClicked -= HandleBetClicked;
+        Context.BetButton.SetInteractable(false);
 
         if (Context.Demo != null)
             Context.Demo.OnTicketQueued -= HandleDemoTicketQueued;
@@ -39,15 +44,14 @@ public class IdleState : BaseGameState
         Context.StateMachine.TransitionTo(GameState.PreparingSpin);
     }
 
+    private void HandleBetClicked()
+    {
+        Context.Bet.IncreaseBetLevel();
+        Context.BetButton.SetBetDisplay(Context.Bet.CurrentBet, Context.Bet.CurrentBetLevel);
+    }
+
     private void HandleDemoTicketQueued()
     {
-        if (!Context.CanStartSpin())
-        {
-            Debug.LogWarning("Demo ticket clicked - Insufficient funds.");
-            Context.Demo?.ConsumePending();
-            return;
-        }
-
         Context.CurrentSpinSource = SpinStartSource.DemoMenu;
         Context.StateMachine.TransitionTo(GameState.PreparingSpin);
     }

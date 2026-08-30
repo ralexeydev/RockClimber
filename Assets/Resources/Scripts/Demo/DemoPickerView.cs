@@ -6,26 +6,32 @@ using UnityEngine.UI;
 // queue event and starts the spin.
 public class DemoPickerView : BaseView
 {
+    private const float RowSpacing = 8f;
+
     [Header("References")]
     [SerializeField] private DemoController m_Demo;
     [SerializeField] private RectTransform m_Content;
     [SerializeField] private Button m_RowTemplate;
 
+    private bool m_Initialized;
     private bool m_Populated;
 
     protected override void Initialize()
     {
+        if (m_Initialized) return;
+        m_Initialized = true;
+
         if (m_RowTemplate != null)
             m_RowTemplate.gameObject.SetActive(false);
-
-        Hide();
     }
 
     public override void Show()
     {
-        PopulateIfNeeded();
-        m_Content.gameObject.SetActive(true);
+        // Picker starts inactive in the scene, so Awake has not necessarily run
+        // when DemoButtonView calls Show for the first time.
+        Initialize();
         base.Show();
+        PopulateIfNeeded();
     }
 
     private void PopulateIfNeeded()
@@ -33,12 +39,28 @@ public class DemoPickerView : BaseView
         if (m_Populated) return;
         if (m_Demo == null || m_Content == null || m_RowTemplate == null) return;
 
+        RectTransform templateTransform = m_RowTemplate.transform as RectTransform;
+        bool usesLayoutGroup = m_Content.GetComponent<LayoutGroup>() != null;
+        int rowIndex = 0;
+
         foreach (var ticket in m_Demo.Tickets)
         {
             var row = Instantiate(m_RowTemplate, m_Content);
+
+            if (!usesLayoutGroup && templateTransform != null &&
+                row.transform is RectTransform rowTransform)
+            {
+                float rowHeight = templateTransform.rect.height;
+                if (rowHeight <= 0f)
+                    rowHeight = Mathf.Abs(templateTransform.sizeDelta.y);
+
+                rowTransform.anchoredPosition = templateTransform.anchoredPosition +
+                    Vector2.down * (rowHeight + RowSpacing) * rowIndex;
+            }
+
             row.gameObject.SetActive(true);
 
-            string labelText = $"{ticket.Id}  {ticket.Description}";
+            string labelText = ticket.DisplayName;
 
             var label = row.GetComponentInChildren<Text>(true);
             if (label == null) label = row.GetComponent<Text>();
@@ -57,6 +79,7 @@ public class DemoPickerView : BaseView
 
             var captured = ticket;
             row.onClick.AddListener(() => HandleRowClicked(captured));
+            rowIndex++;
         }
 
         m_Populated = true;

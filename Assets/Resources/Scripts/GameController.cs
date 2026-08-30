@@ -6,6 +6,7 @@ public class GameController : BaseController
 {
     [Header("References")]
     [SerializeField] private SpinButtonView m_SpinButtonView;
+    [SerializeField] private BetButtonView m_BetButtonView;
     [SerializeField] private BetController m_BetController;
     [SerializeField] private BalanceController m_BalanceController;
     [SerializeField] private VisualSequenceController m_VisualSequenceController;
@@ -35,6 +36,7 @@ public class GameController : BaseController
             engine: engine,
             visuals: m_VisualSequenceController,
             spinButton: m_SpinButtonView,
+            betButton: m_BetButtonView,
             demo: m_DemoController,
             winPool: m_WinPoolController
         );

@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
+[RequireComponent(typeof(Button))]
 public class SpinButtonView : BaseView
 {
     [SerializeField] private Button m_Button;

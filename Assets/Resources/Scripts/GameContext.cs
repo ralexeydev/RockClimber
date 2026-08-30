@@ -15,6 +15,7 @@ public class GameContext
     public ISlotEngine Engine { get; }
     public VisualSequenceController Visuals { get; }
     public SpinButtonView SpinButton { get; }
+    public BetButtonView BetButton { get; }
     public DemoController Demo { get; }
     public WinPoolController WinPool { get; }
 
@@ -22,6 +23,7 @@ public class GameContext
     // Cleared by EndingSpinState when the cycle is complete.
     public SpinResult CurrentSpinResult { get; set; }
     public int CurrentBet { get; set; }
+    public int CurrentBetLevel { get; set; }
     public DemoTicket CurrentDemoTicket { get; set; }
     public SpinStartSource CurrentSpinSource { get; set; }
 
@@ -33,6 +35,7 @@ public class GameContext
         ISlotEngine engine,
         VisualSequenceController visuals,
         SpinButtonView spinButton,
+        BetButtonView betButton,
         DemoController demo,
         WinPoolController winPool)
     {
@@ -43,6 +46,7 @@ public class GameContext
         Engine = engine;
         Visuals = visuals;
         SpinButton = spinButton;
+        BetButton = betButton;
         Demo = demo;
         WinPool = winPool;
     }

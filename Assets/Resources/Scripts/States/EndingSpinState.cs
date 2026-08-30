@@ -9,6 +9,7 @@ public class EndingSpinState : BaseGameState
         Context.CurrentSpinResult = null;
         Context.CurrentDemoTicket = null;
         Context.CurrentBet = 0;
+        Context.CurrentBetLevel = 0;
         Context.CurrentSpinSource = SpinStartSource.None;
         Context.StateMachine.TransitionTo(GameState.Idle);
     }

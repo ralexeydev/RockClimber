@@ -7,6 +7,9 @@ using System.Xml;
 [XmlRoot("Ticket")]
 public class DemoTicket
 {
+    [XmlIgnore]
+    public string Name;
+
     [XmlElement("Id")]
     public string Id;
 
@@ -29,6 +32,13 @@ public class DemoTicket
 
     [XmlIgnore]
     public string PlayXml;
+
+    [XmlIgnore]
+    public string DisplayName => !string.IsNullOrWhiteSpace(Name)
+        ? Name
+        : !string.IsNullOrWhiteSpace(Description)
+            ? Description
+            : Id;
 }
 
 public class ExpectedWin

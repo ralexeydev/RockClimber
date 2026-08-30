@@ -7,7 +7,7 @@ public abstract class BaseView : MonoBehaviour
     protected virtual void Awake() => Initialize();
     protected virtual void Initialize() { }
 
-    // Show and Hide toggle the GameObject itself, suitable for overlay-style views.
+    // Show and Hide toggle the GameObject
     public virtual void Show() => gameObject.SetActive(true);
     public virtual void Hide() => gameObject.SetActive(false);
 

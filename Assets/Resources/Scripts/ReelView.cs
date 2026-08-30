@@ -5,6 +5,12 @@ using UnityEngine;
 // Orchestrates a single reel's strip of SymbolViews.
 public class ReelView : MonoBehaviour
 {
+    private const int SymbolCount = 8;
+
+    // Serialized art is stored in its original icon_1..icon_8 order. Logical
+    // IDs are zero-based: Yeti/icon_8, icon_1..icon_6, then logo/icon_7.
+    private static readonly int[] VisualIndexBySymbolId = { 7, 0, 1, 2, 3, 4, 5, 6 };
+
     [Header("Strip")]
     [SerializeField] private List<SymbolView> m_SymbolViews = new();
     [SerializeField] private int[] m_VisibleSlotIndices;
@@ -13,11 +19,6 @@ public class ReelView : MonoBehaviour
     [SerializeField] private Sprite[] m_IconSprites;
     [SerializeField] private Sprite[] m_BlurFrames;
     [SerializeField] private int m_BlurFramesPerIcon = 5;
-
-    [Header("Win")]
-    // One entry per symbol id, parallel to m_IconSprites (index = symbolId - 1).
-    [SerializeField] private SymbolWinAnimation[] m_WinAnimations;
-    [SerializeField] private float m_WinFrameRate = 18f;
 
     [Header("Motion")]
     [SerializeField] private float m_SpinSpeed = 20f;
@@ -30,6 +31,7 @@ public class ReelView : MonoBehaviour
 
     private float m_WrapBelow;
     private float m_TotalSpan;
+    private int m_VisibleRowCount;
     private Coroutine m_ScrollCoroutine;
 
     // Runs in Start so every SymbolView.Awake has captured its rest position first.
@@ -43,18 +45,28 @@ public class ReelView : MonoBehaviour
         m_WrapBelow = minY - m_SymbolSpacing;
     }
 
-    public void StartSpin()
+    public void StartSpin(int? deterministicSeed = null)
     {
         if (m_ScrollCoroutine != null)
             StopCoroutine(m_ScrollCoroutine);
 
         m_ScrollCoroutine = StartCoroutine(ScrollLoop());
 
+        int iconCount = m_BlurFramesPerIcon > 0
+            ? (m_BlurFrames?.Length ?? 0) / m_BlurFramesPerIcon
+            : 0;
+
         for (int i = 0; i < m_SymbolViews.Count; i++)
-            m_SymbolViews[i].StartBlur(m_BlurFrames, m_BlurFramesPerIcon, m_BlurFrameRate);
+        {
+            int? startIcon = deterministicSeed.HasValue && iconCount > 0
+                ? DeterministicIndex(deterministicSeed.Value, i, iconCount)
+                : null;
+            m_SymbolViews[i].StartBlur(
+                m_BlurFrames, m_BlurFramesPerIcon, m_BlurFrameRate, startIcon);
+        }
     }
 
-    public IEnumerator StopSpin(int[] finalSymbolIds)
+    public IEnumerator StopSpin(int[] finalSymbolIds, int? deterministicSeed = null)
     {
         if (m_ScrollCoroutine != null)
         {
@@ -66,20 +78,20 @@ public class ReelView : MonoBehaviour
             m_SymbolViews[i].StopBlur();
 
         SnapToRest();
-        ApplyFinalSymbols(finalSymbolIds);
+        ApplyFinalSymbols(finalSymbolIds, deterministicSeed);
         yield return PlayBounce();
     }
 
-    public void PlayWinAt(int visibleRow)
+    public void PlayWinAt(
+        int visibleRow,
+        Sprite winFrameSprite,
+        Sprite[] winEffectFrames,
+        float frameRate)
     {
         SymbolView symbol = SymbolForVisibleRow(visibleRow);
         if (symbol == null) return;
 
-        int animationIndex = symbol.SymbolId - 1;
-        if (m_WinAnimations == null || animationIndex < 0 || animationIndex >= m_WinAnimations.Length)
-            return;
-
-        symbol.PlayWin(m_WinAnimations[animationIndex]?.Frames, m_WinFrameRate);
+        symbol.PlayWin(winFrameSprite, winEffectFrames, frameRate);
     }
 
     public void StopWinAt(int visibleRow)
@@ -87,17 +99,19 @@ public class ReelView : MonoBehaviour
         SymbolForVisibleRow(visibleRow)?.StopWin();
     }
 
-    public bool TryGetVisibleSymbolPosition(int visibleRow, out Vector3 position)
+    public void SetSymbolAlphaAt(int visibleRow, float alpha)
     {
-        SymbolView symbol = SymbolForVisibleRow(visibleRow);
-        if (symbol == null)
-        {
-            position = default;
-            return false;
-        }
+        SymbolForVisibleRow(visibleRow)?.SetAlpha(alpha);
+    }
 
-        position = symbol.WorldPosition;
-        return true;
+    public void SetVisibleSymbolsAlpha(float alpha)
+    {
+        int visibleRows = m_VisibleSlotIndices != null && m_VisibleSlotIndices.Length > 0
+            ? m_VisibleSlotIndices.Length
+            : m_VisibleRowCount;
+
+        for (int row = 0; row < visibleRows; row++)
+            SymbolForVisibleRow(row)?.SetAlpha(alpha);
     }
 
     private IEnumerator ScrollLoop()
@@ -148,7 +162,7 @@ public class ReelView : MonoBehaviour
             m_SymbolViews[i].SnapToRest();
     }
 
-    private void ApplyFinalSymbols(int[] finalSymbolIds)
+    private void ApplyFinalSymbols(int[] finalSymbolIds, int? deterministicSeed)
     {
         if (m_IconSprites == null || m_IconSprites.Length == 0)
         {
@@ -156,6 +170,7 @@ public class ReelView : MonoBehaviour
             return;
         }
 
+        m_VisibleRowCount = finalSymbolIds.Length;
         bool hasVisibleMap = m_VisibleSlotIndices != null && m_VisibleSlotIndices.Length > 0;
 
         for (int visibleRow = 0; visibleRow < finalSymbolIds.Length; visibleRow++)
@@ -163,15 +178,38 @@ public class ReelView : MonoBehaviour
             int slot = hasVisibleMap ? m_VisibleSlotIndices[visibleRow] : visibleRow;
             if (slot < 0 || slot >= m_SymbolViews.Count) continue;
 
-            int spriteIndex = Mathf.Clamp(finalSymbolIds[visibleRow] - 1, 0, m_IconSprites.Length - 1);
-            m_SymbolViews[slot].SetSymbol(finalSymbolIds[visibleRow], m_IconSprites[spriteIndex]);
+            int symbolId = Mathf.Clamp(finalSymbolIds[visibleRow], 0, SymbolCount - 1);
+            int spriteIndex = VisualIndexForSymbolId(symbolId);
+            m_SymbolViews[slot].SetSymbol(symbolId, m_IconSprites[spriteIndex]);
         }
 
         for (int i = 0; i < m_SymbolViews.Count; i++)
         {
             if (IsVisibleSlot(i, hasVisibleMap, finalSymbolIds.Length)) continue;
-            int randomIndex = Random.Range(0, m_IconSprites.Length);
-            m_SymbolViews[i].SetSymbol(randomIndex + 1, m_IconSprites[randomIndex]);
+            int symbolId = deterministicSeed.HasValue
+                ? DeterministicIndex(deterministicSeed.Value, i, SymbolCount)
+                : Random.Range(0, SymbolCount);
+            int spriteIndex = VisualIndexForSymbolId(symbolId);
+            m_SymbolViews[i].SetSymbol(symbolId, m_IconSprites[spriteIndex]);
+        }
+    }
+
+    private static int VisualIndexForSymbolId(int symbolId)
+    {
+        return symbolId >= 0 && symbolId < VisualIndexBySymbolId.Length
+            ? VisualIndexBySymbolId[symbolId]
+            : 0;
+    }
+
+    private static int DeterministicIndex(int seed, int salt, int length)
+    {
+        unchecked
+        {
+            uint value = (uint)seed ^ ((uint)(salt + 1) * 0x9e3779b9u);
+            value ^= value >> 16;
+            value *= 0x85ebca6bu;
+            value ^= value >> 13;
+            return (int)(value % (uint)length);
         }
     }
 
@@ -206,10 +244,4 @@ public class ReelView : MonoBehaviour
 
         return index < defaultVisibleCount;
     }
-}
-
-[System.Serializable]
-public class SymbolWinAnimation
-{
-    public Sprite[] Frames;
 }

@@ -10,7 +10,9 @@ public abstract class BaseGameState : IGameState
     }
 
     public abstract void Enter();
-    // Tick is no-op by default. Only override when per-frame logic is required.
+
+    // Tick can be overridden by states that need per-frame polling, but is a no-op by default.
     public virtual void Tick() { }
+
     public abstract void Exit();
 }

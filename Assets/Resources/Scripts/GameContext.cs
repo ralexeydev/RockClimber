@@ -16,8 +16,11 @@ public class GameContext
     public VisualSequenceController Visuals { get; }
     public SpinButtonView SpinButton { get; }
     public BetButtonView BetButton { get; }
+    public DemoButtonView DemoButton { get; }
     public DemoController Demo { get; }
     public WinPoolController WinPool { get; }
+    public GameHudView Hud { get; }
+    public string StartupError { get; }
 
     // Mutable spin data shared across states within a single spin cycle.
     // Cleared by EndingSpinState when the cycle is complete.
@@ -26,6 +29,9 @@ public class GameContext
     public int CurrentBetLevel { get; set; }
     public DemoTicket CurrentDemoTicket { get; set; }
     public SpinStartSource CurrentSpinSource { get; set; }
+    public bool BetWasDebited { get; private set; }
+    public bool WinWasCredited { get; private set; }
+    public bool RefundWasIssued { get; private set; }
 
     public GameContext(
         MonoBehaviour coroutineRunner,
@@ -36,8 +42,11 @@ public class GameContext
         VisualSequenceController visuals,
         SpinButtonView spinButton,
         BetButtonView betButton,
+        DemoButtonView demoButton,
         DemoController demo,
-        WinPoolController winPool)
+        WinPoolController winPool,
+        GameHudView hud,
+        string startupError)
     {
         CoroutineRunner = coroutineRunner;
         StateMachine = stateMachine;
@@ -47,13 +56,58 @@ public class GameContext
         Visuals = visuals;
         SpinButton = spinButton;
         BetButton = betButton;
+        DemoButton = demoButton;
         Demo = demo;
         WinPool = winPool;
+        Hud = hud;
+        StartupError = startupError;
     }
 
     public bool CanStartSpin()
     {
         return Balance.CanPayBet(Bet.CurrentBet);
+    }
+
+    public bool TryDebitBet()
+    {
+        if (BetWasDebited)
+            return false;
+
+        if (!Balance.TryPayBet(CurrentBet))
+            return false;
+
+        BetWasDebited = true;
+        return true;
+    }
+
+    public void CreditWinOnce(int amount)
+    {
+        if (!BetWasDebited || WinWasCredited || RefundWasIssued)
+            return;
+
+        Balance.AddWin(amount);
+        WinWasCredited = true;
+    }
+
+    public void RefundBetOnce()
+    {
+        if (!BetWasDebited || WinWasCredited || RefundWasIssued)
+            return;
+
+        Balance.AddWin(CurrentBet);
+        RefundWasIssued = true;
+    }
+
+    public void ResetSpinData()
+    {
+        CurrentSpinResult = null;
+        CurrentDemoTicket = null;
+        CurrentBet = 0;
+        CurrentBetLevel = 0;
+        CurrentSpinSource = SpinStartSource.None;
+        BetWasDebited = false;
+        WinWasCredited = false;
+        RefundWasIssued = false;
     }
 }
 

@@ -15,7 +15,8 @@ public class RequestingResultState : BaseGameState
         var request = new SpinRequest
         {
             Bet = currentBet,
-            BetLevel = Context.CurrentBetLevel
+            BetLevel = Context.CurrentBetLevel,
+            Mode = GameMode.BaseGame
         };
 
         bool isDemoSpin = Context.CurrentSpinSource == SpinStartSource.DemoMenu;
@@ -35,21 +36,26 @@ public class RequestingResultState : BaseGameState
 
         // Paid spins draw from the win pool when it is active. If a demo ticket
         // is present, it replaces the generated PLAY ticket inside the engine.
-        int? target = demoTicket == null && Context.WinPool != null
-            ? Context.WinPool.DrawTarget(currentBet)
+        int? target = demoTicket == null
+            ? Context.WinPool.DrawBaseWinCents()
             : null;
         if (target.HasValue)
         {
-            request.TargetWin = target.Value;
+            request.RequestedBaseWinCents = target.Value;
             if (Context.WinPool.ForcedWin)
             {
-                Debug.Log($"RequestingResultState: forced target win {target.Value} cents");
+                Debug.Log($"RequestingResultState: forced base win {target.Value} cents");
             }
             else
             {
-                Debug.Log($"RequestingResultState: win-pool target {target.Value} " +
-                    $"(x{Context.WinPool.LastMultiplier} of bet {Context.CurrentBet})");
+                Debug.Log($"RequestingResultState: base-win target {target.Value}, level {Context.CurrentBetLevel}");
             }
+        }
+        else if (demoTicket == null)
+        {
+            Debug.LogError("RequestingResultState: Win pool did not provide a BaseGame target.");
+            Context.StateMachine.TransitionTo(GameState.Error);
+            return;
         }
 
         try
@@ -68,20 +74,13 @@ public class RequestingResultState : BaseGameState
             return;
         }
 
-        // The resolver tries to find a matching board, but its finite search can
-        // return the closest payout. Debug forcing must always pay the exact
-        // inspector amount, expressed in cents.
-        if (demoTicket == null && Context.WinPool != null && Context.WinPool.ForcedWin)
-        {
-            result.TotalWin = Context.WinPool.ForcedTotalWin;
-        }
-
         if (demoTicket != null)
         {
             Context.Demo.AssertResult(demoTicket, result);
         }
 
         Context.CurrentSpinResult = result;
+        Context.Hud.SetWin(result.TotalWin);
         Context.StateMachine.TransitionTo(GameState.Spinning);
     }
 

@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 // Owns the loaded win pool and, when active, draws a weighted target win for the
 // next spin. RequestingResultState asks for a target (after the Demo-ticket check)
@@ -9,12 +10,15 @@ using UnityEngine;
 // Precedence is enforced by the caller: Demo ticket > WinPool target > normal RNG.
 public class WinPoolController : BaseController
 {
+    private const int MaximumBaseWinCents = 5000;
+
     [Header("Forced Win (Debug)")]
     [Tooltip("When enabled, non-demo spins use the forced total below instead of the win pool. This can remain enabled while the win pool is inactive.")]
     [SerializeField] private bool m_ForcedWin;
 
-    [Tooltip("Requested total win in cents. For example, 100 pays $1.00.")]
-    [SerializeField, Min(0)] private int m_ForcedTotalWin;
+    [FormerlySerializedAs("m_ForcedTotalWin")]
+    [Tooltip("Requested win in base cents at bet level 1.")]
+    [SerializeField, Min(0)] private int m_ForcedBaseWinCents;
 
     [Header("Win Pool")]
     [Tooltip("When enabled, non-demo spins draw a weighted target win from the pool.")]
@@ -24,6 +28,8 @@ public class WinPoolController : BaseController
     [SerializeField] private string m_FileName = "winpool.xml";
 
     private WinPool m_Pool;
+    private string m_LoadError;
+    private bool m_LoadAttempted;
     private readonly System.Random m_Random = new();
 
     public bool Active
@@ -38,32 +44,84 @@ public class WinPoolController : BaseController
         set => m_ForcedWin = value;
     }
 
-    public int ForcedTotalWin
+    public int ForcedBaseWinCents
     {
-        get => m_ForcedTotalWin;
-        set => m_ForcedTotalWin = Mathf.Max(0, value);
+        get => m_ForcedBaseWinCents;
+        set => m_ForcedBaseWinCents = Mathf.Max(0, value);
     }
 
-    // Last multiplier/target drawn, exposed for logging and UI.
-    public int LastMultiplier { get; private set; }
+    public int LastBaseWinCents { get; private set; }
 
     protected override void Initialize()
     {
+        EnsureLoaded();
+    }
+
+    public void EnsureLoaded()
+    {
+        if (m_LoadAttempted)
+            return;
+
+        m_LoadAttempted = true;
         string path = Path.Combine(Application.streamingAssetsPath, "WinPool", m_FileName);
-        m_Pool = WinPoolLoader.Load(path);
+        WinPoolLoader.TryLoad(path, out m_Pool, out m_LoadError);
 
         int count = m_Pool?.Entries?.Length ?? 0;
         Debug.Log($"WinPoolController: loaded {count} win-pool entries from {path}");
     }
 
-    // Draws a target coin amount for the given bet, or null when the mode is
-    // inactive or the pool is unusable. A return of 0 is a deliberate losing spin.
-    public int? DrawTarget(int bet)
+    public bool TryPrepare(ISlotEngine engine, out string error)
+    {
+        EnsureLoaded();
+        error = m_LoadError;
+
+        if (engine == null || !engine.IsReady)
+        {
+            error = "The exact BaseGame outcome catalog is not ready.";
+            return false;
+        }
+
+        if (m_ForcedWin)
+        {
+            if (!engine.CanResolveBaseWin(m_ForcedBaseWinCents))
+            {
+                error = $"Forced base win {m_ForcedBaseWinCents} is not reachable.";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (!m_Active)
+        {
+            error = "The BaseGame win pool is disabled.";
+            return false;
+        }
+
+        if (m_Pool == null)
+            return false;
+
+        if (!m_Pool.TryValidate(MaximumBaseWinCents, out error))
+            return false;
+
+        foreach (WinPoolEntry entry in m_Pool.Entries)
+        {
+            if (engine.CanResolveBaseWin(entry.BaseWinCents))
+                continue;
+
+            error = $"Win-pool amount {entry.BaseWinCents} has no exact BaseGame board.";
+            return false;
+        }
+
+        return true;
+    }
+
+    public int? DrawBaseWinCents()
     {
         if (m_ForcedWin)
         {
-            LastMultiplier = 0;
-            return Mathf.Max(0, m_ForcedTotalWin);
+            LastBaseWinCents = Mathf.Max(0, m_ForcedBaseWinCents);
+            return LastBaseWinCents;
         }
 
         if (!m_Active || m_Pool == null)
@@ -73,7 +131,7 @@ public class WinPoolController : BaseController
         if (entry == null)
             return null;
 
-        LastMultiplier = entry.Multiplier;
-        return entry.Multiplier * bet;
+        LastBaseWinCents = entry.BaseWinCents;
+        return entry.BaseWinCents;
     }
 }

@@ -1,10 +1,6 @@
 using System;
 using System.Xml.Serialization;
 
-// A weighted pool of target win amounts authored as XML in StreamingAssets/WinPool/.
-// Each entry's payout is a multiplier of the bet; the actual coin target is
-// resolved as Multiplier * bet at draw time (see WinPoolController). Weights are
-// relative and need not sum to any particular total.
 [XmlRoot("WinPool")]
 public class WinPool
 {
@@ -44,15 +40,49 @@ public class WinPool
 
         return null;
     }
+
+    public bool TryValidate(int maximumBaseWinCents, out string error)
+    {
+        error = null;
+
+        if (Entries == null || Entries.Length == 0)
+        {
+            error = "The win pool has no entries.";
+            return false;
+        }
+
+        var seenAmounts = new System.Collections.Generic.HashSet<int>();
+
+        foreach (WinPoolEntry entry in Entries)
+        {
+            if (entry.BaseWinCents < 0 || entry.BaseWinCents > maximumBaseWinCents)
+            {
+                error = $"Win-pool amount {entry.BaseWinCents} is outside the BaseGame range.";
+                return false;
+            }
+
+            if (entry.Weight <= 0)
+            {
+                error = $"Win-pool amount {entry.BaseWinCents} has a non-positive weight.";
+                return false;
+            }
+
+            if (!seenAmounts.Add(entry.BaseWinCents))
+            {
+                error = $"Win-pool amount {entry.BaseWinCents} is duplicated.";
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 public class WinPoolEntry
 {
-    // Payout as a multiple of the current bet. 0 = losing spin.
-    [XmlAttribute("multiplier")]
-    public int Multiplier;
+    [XmlAttribute("baseWinCents")]
+    public int BaseWinCents;
 
-    // Relative draw weight. Non-positive weights are ignored.
     [XmlAttribute("weight")]
     public int Weight;
 }

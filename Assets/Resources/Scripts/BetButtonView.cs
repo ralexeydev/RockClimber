@@ -11,6 +11,7 @@ public class BetButtonView : BaseView
     [SerializeField] private TMP_Text m_ValueLabel;
 
     public event Action OnBetClicked;
+    public bool IsInteractable => m_Button != null && m_Button.interactable;
 
     protected override void Initialize()
     {
@@ -35,7 +36,8 @@ public class BetButtonView : BaseView
     public void SetBetDisplay(int betCents, int betLevel)
     {
         EnsureValueLabel();
-        if (m_ValueLabel == null) return;
+        if (m_ValueLabel == null)
+            return;
 
         string amount = (betCents / 100m).ToString("0.00", CultureInfo.InvariantCulture);
         m_ValueLabel.text = $"${amount}  LEVEL {betLevel}";
@@ -54,7 +56,8 @@ public class BetButtonView : BaseView
 
     private void EnsureValueLabel()
     {
-        if (m_ValueLabel != null) return;
+        if (m_ValueLabel != null)
+            return;
 
         GameObject labelObject = new(
             "BetValue",

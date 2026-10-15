@@ -5,12 +5,8 @@ public class EndingSpinState : BaseGameState
 
     public override void Enter()
     {
-        // Clear context data so stale results cannot bleed into the next spin cycle.
-        Context.CurrentSpinResult = null;
-        Context.CurrentDemoTicket = null;
-        Context.CurrentBet = 0;
-        Context.CurrentBetLevel = 0;
-        Context.CurrentSpinSource = SpinStartSource.None;
+        Context.Demo.ClearPending();
+        Context.ResetSpinData();
         Context.StateMachine.TransitionTo(GameState.Idle);
     }
 

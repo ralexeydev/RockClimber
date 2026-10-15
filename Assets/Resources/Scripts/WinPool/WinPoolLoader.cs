@@ -8,22 +8,34 @@ public static class WinPoolLoader
 {
     public static WinPool Load(string path)
     {
+        TryLoad(path, out WinPool pool, out _);
+        return pool;
+    }
+
+    public static bool TryLoad(string path, out WinPool pool, out string error)
+    {
+        pool = null;
+        error = null;
+
         if (!File.Exists(path))
         {
-            Debug.LogWarning($"WinPoolLoader: file not found — {path}");
-            return null;
+            error = $"Win-pool file not found: {path}";
+            Debug.LogError(error);
+            return false;
         }
 
         try
         {
             var serializer = new XmlSerializer(typeof(WinPool));
             using var stream = File.OpenRead(path);
-            return (WinPool)serializer.Deserialize(stream);
+            pool = (WinPool)serializer.Deserialize(stream);
+            return true;
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"WinPoolLoader: failed to parse {path} — {e.Message}");
-            return null;
+            error = $"Failed to parse win pool '{path}': {e.Message}";
+            Debug.LogError(error);
+            return false;
         }
     }
 }

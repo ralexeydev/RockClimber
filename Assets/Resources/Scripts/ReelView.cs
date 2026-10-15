@@ -39,7 +39,8 @@ public class ReelView : MonoBehaviour
     {
         float minY = float.MaxValue;
         for (int i = 0; i < m_SymbolViews.Count; i++)
-            if (m_SymbolViews[i].RestY < minY) minY = m_SymbolViews[i].RestY;
+            if (m_SymbolViews[i].RestY < minY)
+                minY = m_SymbolViews[i].RestY;
 
         m_TotalSpan = m_SymbolSpacing * m_SymbolViews.Count;
         m_WrapBelow = minY - m_SymbolSpacing;
@@ -89,7 +90,8 @@ public class ReelView : MonoBehaviour
         float frameRate)
     {
         SymbolView symbol = SymbolForVisibleRow(visibleRow);
-        if (symbol == null) return;
+        if (symbol == null)
+            return;
 
         symbol.PlayWin(winFrameSprite, winEffectFrames, frameRate);
     }
@@ -176,7 +178,8 @@ public class ReelView : MonoBehaviour
         for (int visibleRow = 0; visibleRow < finalSymbolIds.Length; visibleRow++)
         {
             int slot = hasVisibleMap ? m_VisibleSlotIndices[visibleRow] : visibleRow;
-            if (slot < 0 || slot >= m_SymbolViews.Count) continue;
+            if (slot < 0 || slot >= m_SymbolViews.Count)
+                continue;
 
             int symbolId = Mathf.Clamp(finalSymbolIds[visibleRow], 0, SymbolCount - 1);
             int spriteIndex = VisualIndexForSymbolId(symbolId);
@@ -185,7 +188,8 @@ public class ReelView : MonoBehaviour
 
         for (int i = 0; i < m_SymbolViews.Count; i++)
         {
-            if (IsVisibleSlot(i, hasVisibleMap, finalSymbolIds.Length)) continue;
+            if (IsVisibleSlot(i, hasVisibleMap, finalSymbolIds.Length))
+                continue;
             int symbolId = deterministicSeed.HasValue
                 ? DeterministicIndex(deterministicSeed.Value, i, SymbolCount)
                 : Random.Range(0, SymbolCount);
@@ -238,10 +242,71 @@ public class ReelView : MonoBehaviour
         if (hasVisibleMap)
         {
             for (int i = 0; i < m_VisibleSlotIndices.Length; i++)
-                if (m_VisibleSlotIndices[i] == index) return true;
+                if (m_VisibleSlotIndices[i] == index)
+                    return true;
             return false;
         }
 
         return index < defaultVisibleCount;
+    }
+
+    public bool TryValidate(out string error)
+    {
+        error = null;
+
+        if (m_SymbolViews == null || m_SymbolViews.Count < 3)
+        {
+            error = "At least three SymbolView references are required.";
+            return false;
+        }
+
+        foreach (SymbolView symbolView in m_SymbolViews)
+        {
+            if (symbolView == null)
+            {
+                error = "A SymbolView reference is missing.";
+                return false;
+            }
+
+            if (symbolView.TryValidate(out error))
+                continue;
+
+            return false;
+        }
+
+        if (m_VisibleSlotIndices == null || m_VisibleSlotIndices.Length != 3)
+        {
+            error = "Exactly three visible slot indices are required.";
+            return false;
+        }
+
+        foreach (int slot in m_VisibleSlotIndices)
+        {
+            if (slot >= 0 && slot < m_SymbolViews.Count)
+                continue;
+
+            error = $"Visible slot index {slot} is outside the symbol-view range.";
+            return false;
+        }
+
+        if (m_IconSprites == null || m_IconSprites.Length < SymbolCount)
+        {
+            error = $"At least {SymbolCount} icon sprites are required.";
+            return false;
+        }
+
+        if (m_BlurFrames == null || m_BlurFrames.Length < SymbolCount * m_BlurFramesPerIcon)
+        {
+            error = "The blur-frame array does not cover every symbol.";
+            return false;
+        }
+
+        if (m_BlurFramesPerIcon <= 0)
+        {
+            error = "Blur frames per icon must be positive.";
+            return false;
+        }
+
+        return true;
     }
 }

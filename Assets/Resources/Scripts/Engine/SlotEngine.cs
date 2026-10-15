@@ -5,64 +5,100 @@ public class SlotEngine
 {
     private const int Reels = 5;
     private const int Rows = 3;
+    private const int MaxBaseWinCents = 5000;
 
     private readonly Random m_Random = new();
     private readonly ReelStrip[] m_ReelStrips;
     private readonly PayTable m_PayTable;
+    private readonly ExactOutcomeCatalog m_OutcomeCatalog;
+
+    public bool IsReady => m_OutcomeCatalog.IsComplete;
+    public float InitializationProgress => m_OutcomeCatalog.Progress;
 
     public SlotEngine(ReelStrip[] reelStrips, PayTable payTable)
     {
         m_ReelStrips = reelStrips;
         m_PayTable = payTable;
+        m_OutcomeCatalog = new ExactOutcomeCatalog(reelStrips, payTable, Reels, Rows, MaxBaseWinCents);
+    }
+
+    public void BeginInitialization()
+    {
+        m_OutcomeCatalog.Reset();
+    }
+
+    public bool StepInitialization(int candidatesPerBatch)
+    {
+        return m_OutcomeCatalog.BuildNextBatch(candidatesPerBatch);
+    }
+
+    public bool CanResolveBaseWin(int baseWinCents)
+    {
+        return m_OutcomeCatalog.ContainsBaseWin(baseWinCents);
     }
 
     public SpinResult BuildSpinResult(SpinRequest request)
     {
+        if (!IsReady)
+            throw new InvalidOperationException("The exact outcome catalog is not ready.");
+
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        if (request.Mode != GameMode.BaseGame)
+            throw new NotSupportedException($"Game mode '{request.Mode}' is not supported.");
+
         bool hasTicketOverride = !string.IsNullOrWhiteSpace(request.PlayTicketOverrideXml);
-        string ticketXml;
+        PlayTicket ticket;
+        int[] offsets;
 
         if (hasTicketOverride)
         {
-            // A demo/server ticket is authoritative: do not consume RNG or run
-            // target-win resolution before applying it.
-            ticketXml = request.PlayTicketOverrideXml;
+            ticket = PlayTicket.Parse(request.PlayTicketOverrideXml);
+            offsets = NormalizeOffsets(ticket.ReelStops);
         }
         else
         {
-            int[] offsets = ResolveOffsets(request);
-            int[,] generatedBoard = BoardBuilder.Build(m_ReelStrips, offsets, Reels, Rows);
-            WaysEvaluator.Result generatedEval = WaysEvaluator.Evaluate(
-                generatedBoard, m_PayTable, request.BetLevel);
-            ticketXml = PlayTicket.FromResult(offsets, generatedEval).ToXml();
+            if (!request.RequestedBaseWinCents.HasValue)
+                throw new InvalidOperationException("A paid BaseGame spin requires an exact base-win request.");
+
+            if (!m_OutcomeCatalog.TryResolveBaseWin(request.RequestedBaseWinCents.Value, m_Random, out offsets))
+            {
+                throw new InvalidOperationException(
+                    $"No BaseGame board exists for {request.RequestedBaseWinCents.Value} base cents.");
+            }
+
+            ticket = null;
         }
 
-        PlayTicket ticket = PlayTicket.Parse(ticketXml);
-        int[] ticketOffsets = NormalizeOffsets(ticket.ReelStops);
-        int[,] board = BoardBuilder.Build(m_ReelStrips, ticketOffsets, Reels, Rows);
+        int[,] board = BoardBuilder.Build(m_ReelStrips, offsets, Reels, Rows);
         WaysEvaluator.Result eval = WaysEvaluator.Evaluate(board, m_PayTable, request.BetLevel);
 
-        int featureId = ticket.FeatureId != 0
-            ? ticket.FeatureId
-            : eval.FeatureTriggered ? 1 : 0;
+        if (hasTicketOverride)
+            ValidateTicket(ticket, eval);
+        else
+            ticket = PlayTicket.FromResult(offsets, eval);
+
+        string ticketXml = hasTicketOverride ? request.PlayTicketOverrideXml : ticket.ToXml();
 
         return new SpinResult
         {
             IsValid = true,
             Bet = request.Bet,
             BetLevel = request.BetLevel,
-            CombinationWin = ticket.CombinationWin,
-            TotalWin = ticket.TotalWin,
+            CombinationWin = eval.TotalWin,
+            TotalWin = eval.TotalWin,
 
             HasFreeplay = eval.FreeSpinsAwarded > 0,
             FreeplayTriggerCount = eval.FreeplayTriggerCount,
             FreeplayTriggerPositions = eval.FreeplayTriggerPositions,
             FreeSpinsAwarded = eval.FreeSpinsAwarded,
 
-            HasFeature = featureId != 0,
+            HasFeature = eval.FeatureTriggered,
             FeatureTriggerCount = eval.FeatureTriggerCount,
             FeatureTriggerPositions = eval.FeatureTriggerPositions,
-            FeatureId = featureId,
-            FeatureElementId = ticket.FeatureElementId,
+            FeatureId = 0,
+            FeatureElementId = 0,
 
             PlayTicketXml = ticketXml,
             DeterministicVisualSeed = hasTicketOverride
@@ -88,19 +124,16 @@ public class SlotEngine
         }
     }
 
-    private int[] ResolveOffsets(SpinRequest request)
+    private static void ValidateTicket(PlayTicket ticket, WaysEvaluator.Result evaluation)
     {
-        if (request.TargetWin.HasValue)
-        {
-            return TargetWinResolver.Resolve(
-                m_ReelStrips, m_PayTable, request.BetLevel, request.TargetWin.Value,
-                Reels, Rows, m_Random);
-        }
+        if (ticket.FeatureId != 0 || ticket.FeatureElementId != 0 || evaluation.FeatureTriggered)
+            throw new NotSupportedException("Bonus tickets are not supported by the BaseGame milestone.");
 
-        int[] offsets = new int[Reels];
-        for (int col = 0; col < Reels; col++)
-            offsets[col] = m_Random.Next(0, m_ReelStrips[col].Length);
-        return offsets;
+        if (ticket.CombinationWin != evaluation.TotalWin || ticket.TotalWin != evaluation.TotalWin)
+        {
+            throw new FormatException(
+                $"Ticket payout mismatch. Ticket={ticket.TotalWin}, evaluated={evaluation.TotalWin}.");
+        }
     }
 
     private int[] NormalizeOffsets(int[] reelStops)

@@ -1,17 +1,16 @@
 using System.Collections.Generic;
 
+public enum GameMode
+{
+    BaseGame
+}
+
 public class SpinRequest
 {
-    // Paid amount in cents. Balance and win-pool operations use this value.
     public int Bet;
-    // Paytable multiplier: 1 at $0.25 through 8 at $2.00.
     public int BetLevel;
-
-    // When non-null, SlotEngine searches the reels for a board paying this coin
-    // amount (or closest). 0 is a valid target (losing spin).
-    public int? TargetWin;
-
-    // Optional server/demo ticket override.
+    public GameMode Mode = GameMode.BaseGame;
+    public int? RequestedBaseWinCents;
     public string PlayTicketOverrideXml;
 }
 

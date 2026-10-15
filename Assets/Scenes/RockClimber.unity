@@ -1830,10 +1830,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 14d09b18ed7267842aa919d8a8c7eb97, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_ForcedWin: 1
-  m_ForcedTotalWin: 25
+  m_ForcedWin: 0
+  m_ForcedBaseWinCents: 25
   m_Active: 1
-  m_FileName: Pool.xml
+  m_FileName: winpool.xml
 --- !u!4 &726023188
 Transform:
   m_ObjectHideFlags: 0
@@ -2095,7 +2095,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 18, y: -130}
+  m_AnchoredPosition: {x: 18, y: -130.00002}
   m_SizeDelta: {x: -598.09, y: -595}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &939642218
@@ -2769,7 +2769,6 @@ MonoBehaviour:
   m_WinEffectFrameRate: 30
   m_TimeBetweenWinlines: 0.1
   m_NonWinningSymbolAlpha: 0.25
-  m_MockFeatureDuration: 2
 --- !u!4 &1160359940
 Transform:
   m_ObjectHideFlags: 0
@@ -3103,8 +3102,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1326694119}
   - component: {fileID: 1326694118}
+  - component: {fileID: 1326694120}
   m_Layer: 0
-  m_Name: GameManger
+  m_Name: GameController
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3124,12 +3124,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_SpinButtonView: {fileID: 578346432}
   m_BetButtonView: {fileID: 2099000006}
+  m_DemoButtonView: {fileID: 1636778530}
   m_BetController: {fileID: 1975772900}
   m_BalanceController: {fileID: 1728952227}
   m_VisualSequenceController: {fileID: 1160359939}
   m_SlotConfig: {fileID: 11400000, guid: f2313922255a1824cad0ccf72abba700, type: 2}
   m_DemoController: {fileID: 233839240}
   m_WinPoolController: {fileID: 726023187}
+  m_HudView: {fileID: 1326694120}
+--- !u!114 &1326694120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1326694117}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a73c4d8fb924c55a81156e8e6aeaa19, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_Canvas: {fileID: 187711725}
 --- !u!4 &1326694119
 Transform:
   m_ObjectHideFlags: 0
@@ -5072,8 +5087,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
@@ -5102,8 +5117,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Navigation:
     m_Mode: 3
     m_WrapAround: 0
@@ -5146,8 +5161,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7cd6d151c4a84d7ea7cb8f741a8d52c6, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_Button: {fileID: 2099000005}
   m_ValueLabel: {fileID: 0}
 --- !u!1660057539 &9223372036854775807

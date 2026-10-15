@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// Orchestrates visual sequences for spinning, wins, and features.
+// Orchestrates BaseGame spin and win sequences.
 public class VisualSequenceController : BaseView
 {
     [SerializeField] private ReelView[] m_Reels;
@@ -17,9 +17,6 @@ public class VisualSequenceController : BaseView
     [SerializeField] private float m_WinEffectFrameRate = 30f;
     [SerializeField] private float m_TimeBetweenWinlines = 0.1f;
     [SerializeField, Range(0f, 1f)] private float m_NonWinningSymbolAlpha = 0.25f;
-
-    [Header("Feature")]
-    [SerializeField] private float m_MockFeatureDuration = 2.0f;
 
     public IEnumerator PlaySpinSequence(SpinResult spinResult)
     {
@@ -87,12 +84,6 @@ public class VisualSequenceController : BaseView
         SetAllVisibleSymbolsAlpha(1f);
     }
 
-    public IEnumerator PlayFeatureSequence(SpinResult spinResult)
-    {
-        Debug.Log("Playing feature visuals...");
-        yield return new WaitForSeconds(m_MockFeatureDuration);
-    }
-
     private IEnumerator PlayWinningSymbols(IEnumerable<int> positions, int reelCount)
     {
         SetAllVisibleSymbolsAlpha(m_NonWinningSymbolAlpha);
@@ -127,28 +118,32 @@ public class VisualSequenceController : BaseView
 
     private void SetSymbolAlphas(IEnumerable<int> positions, int reelCount, float alpha)
     {
-        if (positions == null) return;
+        if (positions == null)
+            return;
 
         foreach (int position in positions)
         {
             int reel = position % reelCount;
             int row = position / reelCount;
 
-            if (reel < 0 || reel >= reelCount || row < 0) continue;
+            if (reel < 0 || reel >= reelCount || row < 0)
+                continue;
             m_Reels[reel].SetSymbolAlphaAt(row, alpha);
         }
     }
 
     private void SetWinAnimations(IEnumerable<int> positions, int reelCount, bool play)
     {
-        if (positions == null) return;
+        if (positions == null)
+            return;
 
         foreach (int position in positions)
         {
             int reel = position % reelCount;
             int row = position / reelCount;
 
-            if (reel < 0 || reel >= reelCount || row < 0) continue;
+            if (reel < 0 || reel >= reelCount || row < 0)
+                continue;
 
             if (play)
                 m_Reels[reel].PlayWinAt(
@@ -156,5 +151,45 @@ public class VisualSequenceController : BaseView
             else
                 m_Reels[reel].StopWinAt(row);
         }
+    }
+
+    public bool TryValidate(out string error)
+    {
+        error = null;
+
+        if (m_Reels == null || m_Reels.Length != 5)
+        {
+            error = "VisualSequenceController requires exactly five ReelView references.";
+            return false;
+        }
+
+        for (int reel = 0; reel < m_Reels.Length; reel++)
+        {
+            if (m_Reels[reel] == null)
+            {
+                error = $"ReelView {reel + 1} is not assigned.";
+                return false;
+            }
+
+            if (m_Reels[reel].TryValidate(out string reelError))
+                continue;
+
+            error = $"ReelView {reel + 1} is invalid: {reelError}";
+            return false;
+        }
+
+        if (m_WinEffectFrames == null || m_WinEffectFrames.Length == 0)
+        {
+            error = "Win effect frames are not assigned.";
+            return false;
+        }
+
+        if (m_WinFrameSprite == null)
+        {
+            error = "The win frame sprite is not assigned.";
+            return false;
+        }
+
+        return true;
     }
 }

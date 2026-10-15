@@ -8,6 +8,7 @@ public class SpinButtonView : BaseView
     [SerializeField] private Button m_Button;
 
     public event Action OnSpinClicked;
+    public bool IsInteractable => m_Button != null && m_Button.interactable;
 
     protected override void Initialize()
     {

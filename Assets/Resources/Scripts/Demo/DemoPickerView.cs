@@ -18,7 +18,8 @@ public class DemoPickerView : BaseView
 
     protected override void Initialize()
     {
-        if (m_Initialized) return;
+        if (m_Initialized)
+            return;
         m_Initialized = true;
 
         if (m_RowTemplate != null)
@@ -36,8 +37,11 @@ public class DemoPickerView : BaseView
 
     private void PopulateIfNeeded()
     {
-        if (m_Populated) return;
-        if (m_Demo == null || m_Content == null || m_RowTemplate == null) return;
+        if (m_Populated)
+            return;
+
+        if (m_Demo == null || m_Content == null || m_RowTemplate == null)
+            return;
 
         RectTransform templateTransform = m_RowTemplate.transform as RectTransform;
         bool usesLayoutGroup = m_Content.GetComponent<LayoutGroup>() != null;
@@ -63,7 +67,8 @@ public class DemoPickerView : BaseView
             string labelText = ticket.DisplayName;
 
             var label = row.GetComponentInChildren<Text>(true);
-            if (label == null) label = row.GetComponent<Text>();
+            if (label == null)
+                label = row.GetComponent<Text>();
 
             if (label != null)
             {
@@ -72,7 +77,8 @@ public class DemoPickerView : BaseView
             else
             {
                 var tmp = row.GetComponentInChildren<TMPro.TMP_Text>(true);
-                if (tmp == null) tmp = row.GetComponent<TMPro.TMP_Text>();
+                if (tmp == null)
+                    tmp = row.GetComponent<TMPro.TMP_Text>();
                 if (tmp != null)
                     tmp.text = labelText;
             }

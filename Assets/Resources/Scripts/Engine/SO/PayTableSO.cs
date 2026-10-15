@@ -7,7 +7,7 @@ using UnityEngine;
 public class PayTableSO : ScriptableObject
 {
     [Serializable]
-    public class Entry
+    public class Symbol
     {
         public int Id;
         public bool IsWild;
@@ -16,7 +16,7 @@ public class PayTableSO : ScriptableObject
         public int[] Payouts;
     }
 
-    public Entry[] Entries;
+    public Symbol[] Entries;
     public int[] FreeSpinAwards = new int[3];
     [Min(1)] public int FreeplayTriggerMinimumCount = 3;
     [Min(1)] public int FeatureTriggerMinimumCount = 3;

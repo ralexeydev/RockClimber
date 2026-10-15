@@ -27,7 +27,8 @@ public class DemoController : BaseController
 
     public void QueueTicket(DemoTicket ticket)
     {
-        if (ticket == null) return;
+        if (ticket == null)
+            return;
         m_Pending = ticket;
         OnTicketQueued?.Invoke();
     }
@@ -39,11 +40,17 @@ public class DemoController : BaseController
         return t;
     }
 
+    public void ClearPending()
+    {
+        m_Pending = null;
+    }
+
     // Non-fatal drift check: PLAY is authoritative, but the board from RS should
     // still evaluate to the same combination win for coherent win visuals.
     public void AssertResult(DemoTicket ticket, SpinResult result)
     {
-        if (ticket == null || result == null) return;
+        if (ticket == null || result == null)
+            return;
 
         if (!string.IsNullOrWhiteSpace(ticket.PlayXml))
         {
@@ -84,7 +91,8 @@ public class DemoController : BaseController
             return;
         }
 
-        if (expectedCount == 0) return;
+        if (expectedCount == 0)
+            return;
 
         var remaining = new List<WaysWin>(result.WaysWins);
         foreach (var exp in ticket.ExpectedWaysWins)

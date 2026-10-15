@@ -1,6 +1,6 @@
 // Builds a [reels, rows] board by reading `rows` consecutive symbols from each
 // reel strip starting at the given per-reel offset (with wrap-around). Shared by
-// SlotEngine (normal/forced spins) and TargetWinResolver (target-win search).
+// SlotEngine and ExactOutcomeCatalog use the same board construction contract.
 public static class BoardBuilder
 {
     public static int[,] Build(ReelStrip[] strips, int[] offsets, int reels, int rows)

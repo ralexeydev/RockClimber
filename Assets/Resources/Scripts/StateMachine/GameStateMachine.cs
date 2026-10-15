@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,6 +8,7 @@ public class GameStateMachine
     private IGameState m_CurrentState;
 
     public GameState CurrentStateKey { get; private set; }
+    public event Action<GameState> StateChanged;
 
     // All states must be registered before the machine starts.
     public void RegisterState(GameState key, IGameState state)
@@ -29,6 +31,7 @@ public class GameStateMachine
         GameState previousState = CurrentStateKey;
         CurrentStateKey = newState;
         m_CurrentState = next;
+        StateChanged?.Invoke(CurrentStateKey);
 
         Debug.Log($"State: {previousState} -> {CurrentStateKey}");
 

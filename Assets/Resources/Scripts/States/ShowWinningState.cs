@@ -20,12 +20,10 @@ public class ShowWinningState : BaseGameState
         if (result.TotalWin > 0)
         {
             if (Context.CurrentSpinSource != SpinStartSource.DemoMenu)
-                Context.Balance.AddWin(result.TotalWin);
+                Context.CreditWinOnce(result.TotalWin);
             yield return Context.Visuals.PlayWinSequence(result);
         }
 
-        // Skip directly to EndingSpin if no feature was triggered.
-        GameState nextState = result.HasFeature ? GameState.Feature : GameState.EndingSpin;
-        Context.StateMachine.TransitionTo(nextState);
+        Context.StateMachine.TransitionTo(GameState.EndingSpin);
     }
 }

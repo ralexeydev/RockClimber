@@ -10,14 +10,16 @@ public class IdleState : BaseGameState
 
     public override void Enter()
     {
-        Context.SpinButton.SetInteractable(true);
+        Context.Demo.ClearPending();
+        Context.SpinButton.SetInteractable(Context.CanStartSpin());
         Context.SpinButton.OnSpinClicked += HandleSpinClicked;
         Context.BetButton.SetBetDisplay(Context.Bet.CurrentBet, Context.Bet.CurrentBetLevel);
         Context.BetButton.SetInteractable(true);
         Context.BetButton.OnBetClicked += HandleBetClicked;
+        Context.DemoButton.SetInteractable(Context.Demo.Tickets.Count > 0);
+        Context.Balance.BalanceChanged += HandleBalanceChanged;
 
-        if (Context.Demo != null)
-            Context.Demo.OnTicketQueued += HandleDemoTicketQueued;
+        Context.Demo.OnTicketQueued += HandleDemoTicketQueued;
     }
 
     public override void Exit()
@@ -26,9 +28,10 @@ public class IdleState : BaseGameState
         Context.SpinButton.SetInteractable(false);
         Context.BetButton.OnBetClicked -= HandleBetClicked;
         Context.BetButton.SetInteractable(false);
+        Context.DemoButton.SetInteractable(false);
+        Context.Balance.BalanceChanged -= HandleBalanceChanged;
 
-        if (Context.Demo != null)
-            Context.Demo.OnTicketQueued -= HandleDemoTicketQueued;
+        Context.Demo.OnTicketQueued -= HandleDemoTicketQueued;
     }
 
     private void HandleSpinClicked()
@@ -48,11 +51,17 @@ public class IdleState : BaseGameState
     {
         Context.Bet.IncreaseBetLevel();
         Context.BetButton.SetBetDisplay(Context.Bet.CurrentBet, Context.Bet.CurrentBetLevel);
+        Context.SpinButton.SetInteractable(Context.CanStartSpin());
     }
 
     private void HandleDemoTicketQueued()
     {
         Context.CurrentSpinSource = SpinStartSource.DemoMenu;
         Context.StateMachine.TransitionTo(GameState.PreparingSpin);
+    }
+
+    private void HandleBalanceChanged(int balance)
+    {
+        Context.SpinButton.SetInteractable(Context.CanStartSpin());
     }
 }

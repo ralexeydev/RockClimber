@@ -36,12 +36,22 @@ public static class WaysEvaluator
 
     public static Result Evaluate(int[,] board, PayTable paytable, int betLevel)
     {
+        return Evaluate(board, paytable, betLevel, true);
+    }
+
+    public static Result EvaluateSummary(int[,] board, PayTable paytable, int betLevel)
+    {
+        return Evaluate(board, paytable, betLevel, false);
+    }
+
+    private static Result Evaluate(int[,] board, PayTable paytable, int betLevel, bool includeWinDetails)
+    {
         Result result = new();
         int reels = board.GetLength(0);
         int rows = board.GetLength(1);
 
         EvaluateTriggers(board, paytable, reels, rows, result);
-        EvaluateWays(board, paytable, betLevel, reels, rows, result);
+        EvaluateWays(board, paytable, betLevel, reels, rows, result, includeWinDetails);
 
         return result;
     }
@@ -95,7 +105,8 @@ public static class WaysEvaluator
         int betLevel,
         int reelsCount,
         int rows,
-        Result result)
+        Result result,
+        bool includeWinDetails)
     {
         int[] columnMatches = new int[reelsCount];
         List<int>[] columnPositions = new List<int>[reelsCount];
@@ -118,14 +129,18 @@ public static class WaysEvaluator
                     int cell = board[col, row];
                     bool isMatch = cell == entry.Id || (!entry.IsWild && paytable.IsWild(cell));
 
-                    if (!isMatch) continue;
+                    if (!isMatch)
+                        continue;
 
                     if (cell == entry.Id)
                         hasNaturalSymbol = true;
 
                     matches++;
-                    positions ??= new List<int>();
-                    positions.Add(FindPosition(col, row, reelsCount));
+                    if (includeWinDetails)
+                    {
+                        positions ??= new List<int>();
+                        positions.Add(FindPosition(col, row, reelsCount));
+                    }
                 }
 
                 if (matches == 0)
@@ -155,6 +170,11 @@ public static class WaysEvaluator
             if (payout <= 0)
                 continue;
 
+            result.TotalWin += payout;
+
+            if (!includeWinDetails)
+                continue;
+
             List<int> winningPositions = new();
             for (int col = 0; col < consecutive; col++)
                 winningPositions.AddRange(columnPositions[col]);
@@ -169,7 +189,6 @@ public static class WaysEvaluator
                 WinningPaths = BuildWinningPaths(columnPositions, consecutive)
             });
 
-            result.TotalWin += payout;
         }
     }
 

@@ -16,6 +16,17 @@ public class SymbolView : MonoBehaviour
     public float RestY => m_RestY;
     public int SymbolId => m_SymbolId;
 
+    public bool TryValidate(out string error)
+    {
+        error = null;
+
+        if (m_SymbolRenderer != null)
+            return true;
+
+        error = $"SymbolView '{gameObject.name}' has no SpriteRenderer reference.";
+        return false;
+    }
+
     private void Awake()
     {
         m_RestY = transform.localPosition.y;
@@ -31,7 +42,8 @@ public class SymbolView : MonoBehaviour
 
     public void SetAlpha(float alpha)
     {
-        if (m_SymbolRenderer == null) return;
+        if (m_SymbolRenderer == null)
+            return;
 
         Color color = m_SymbolRenderer.color;
         color.a = Mathf.Clamp01(alpha);
@@ -105,7 +117,8 @@ public class SymbolView : MonoBehaviour
 
     public void StopBlur()
     {
-        if (m_BlurCoroutine == null) return;
+        if (m_BlurCoroutine == null)
+            return;
         StopCoroutine(m_BlurCoroutine);
         m_BlurCoroutine = null;
     }
@@ -132,7 +145,8 @@ public class SymbolView : MonoBehaviour
             yield return wait;
             frame = (frame + 1) % framesPerIcon;
             int index = startIndex + frame;
-            if (index >= blurFrames.Length) index = startIndex;
+            if (index >= blurFrames.Length)
+                index = startIndex;
             m_SymbolRenderer.sprite = blurFrames[index];
         }
     }

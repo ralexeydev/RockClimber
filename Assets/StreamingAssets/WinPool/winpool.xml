@@ -1,18 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Weighted target-win pool. Each <Win> entry declares a payout expressed as a
-  multiplier of the current bet (multiplier="0" means a losing spin) and a
-  relative weight. WinPoolController draws an entry by weight, multiplies by the
-  bet to get a target coin amount, and the engine searches the reel strips for a
-  board whose total win matches (or comes closest to) that amount.
-
-  Weights are relative, not percentages: they are summed and normalized at draw
-  time, so they need not add up to 100.
--->
+<!-- Amounts are cents at bet level 1. Weights are relative. -->
 <WinPool>
-  <Values>
-	  wins="0 250 375 500 750 1000 1250 1500 1750 2000 2250 2500 2750 3000 3250 3500 3750 4000 4250 4500 4750 5000 5250 5500 6000 7000 7500 8000 8500 9000 10000 11000 12000 13500 14000 14500 15000 16000 16500 17000 18000 19000 20000 22000 22500 30000 32500 40000 150000"
-	  weights="1000 900 850 800 760 720 680 640 600 560 530 500 470 440 410 380 350 320 290 260 240 220 200 180 160 140 130 120 110 100 90 80 70 60 55 50 45 40 36 32 28 24 20 16 14 8 6 3 1"
-
-  </Values>
+  <Entries>
+    <Win baseWinCents="0" weight="1000" />
+    <Win baseWinCents="250" weight="900" />
+    <Win baseWinCents="375" weight="850" />
+    <Win baseWinCents="500" weight="800" />
+    <Win baseWinCents="750" weight="760" />
+    <Win baseWinCents="1000" weight="720" />
+    <Win baseWinCents="1250" weight="680" />
+    <Win baseWinCents="1500" weight="640" />
+    <Win baseWinCents="1750" weight="600" />
+    <Win baseWinCents="2000" weight="560" />
+    <Win baseWinCents="2250" weight="530" />
+    <Win baseWinCents="2500" weight="500" />
+    <Win baseWinCents="2750" weight="470" />
+    <Win baseWinCents="3000" weight="440" />
+    <Win baseWinCents="3250" weight="410" />
+    <Win baseWinCents="3500" weight="380" />
+    <Win baseWinCents="3750" weight="350" />
+    <Win baseWinCents="4000" weight="320" />
+    <Win baseWinCents="4250" weight="290" />
+    <Win baseWinCents="4500" weight="260" />
+    <Win baseWinCents="4750" weight="240" />
+    <Win baseWinCents="5000" weight="220" />
+  </Entries>
 </WinPool>
